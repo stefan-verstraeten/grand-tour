@@ -24,7 +24,9 @@ let draft = ''; // half-typed journal text survives redraws
 
 const ICONS = {
   cuisine: '<path d="M3.5 17.5h17"/><path d="M5 17.5a7 7 0 0 1 14 0"/><path d="M12 10.5V9"/><path d="M10.4 8.6h3.2"/>',
-  culture: '<path d="M3.5 9 12 4.5 20.5 9"/><path d="M4.5 19.5h15"/><path d="M6.5 10.5v7M10 10.5v7M14 10.5v7M17.5 10.5v7"/><path d="M4.5 9.5h15"/>',
+  architecture: '<path d="M3.5 9 12 4.5 20.5 9"/><path d="M4.5 19.5h15"/><path d="M6.5 10.5v7M10 10.5v7M14 10.5v7M17.5 10.5v7"/><path d="M4.5 9.5h15"/>',
+  museum: '<rect x="4" y="4.5" width="16" height="15" rx=".5"/><rect x="7" y="7.5" width="10" height="9"/><path d="M7 14l3-3 2.5 2.5L14 12l3 3"/>',
+  culture: '<path d="M5 19.5c3-1 5.5-4.5 7.5-8.5 1.6-3.2 3.6-5.6 6.5-6.5-.4 3.4-2 6.4-5 8.6-2.2 1.6-4.6 2.3-7 2.4"/><path d="M5 19.5 9 15"/>',
   nature: '<path d="M2.5 18.5 9 9l3.6 5.2L15 11l6.5 7.5z"/><path d="M7.2 11.7 9 13l1.6-1.4"/>',
   drive: '<path d="M4.5 15.5v-3l2-5h11l2 5v3z"/><path d="M4.5 15.5v2h2.5v-2M17 15.5v2h2.5v-2"/><circle cx="8" cy="13" r=".6"/><circle cx="16" cy="13" r=".6"/><path d="M6.8 10.2h10.4"/>',
   stay: '<path d="M3.5 18.5v-11"/><path d="M3.5 14.5h17v4"/><path d="M20.5 14.5v-2.5a2.5 2.5 0 0 0-2.5-2.5h-7v5"/><circle cx="7" cy="11.5" r="1.6"/>',
@@ -43,6 +45,8 @@ const ORNAMENT = '<svg class="ornament" viewBox="0 0 54 14" aria-hidden="true"><
 
 const KIND = {
   cuisine: { label: 'Cuisine', section: 'At the table', plural: 'Tables' },
+  architecture: { label: 'Architecture', section: 'Architecture', plural: 'Architecture' },
+  museum: { label: 'Museums', section: 'Museums & collections', plural: 'Museums' },
   culture: { label: 'Culture', section: 'Culture & heritage', plural: 'Culture' },
   nature: { label: 'Nature', section: 'Landscapes & walks', plural: 'Nature' },
 };
