@@ -5,7 +5,8 @@ import { media, preparePhoto } from './media.js';
 
 const $ = (sel, el = document) => el.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const paras = (text) => String(text || '').split(/\n{2,}/).filter(Boolean).map((p) => `<p>${esc(p)}</p>`).join('');
+// Blank lines separate paragraphs; single line breaks (verse) are kept.
+const paras = (text) => String(text || '').split(/\n{2,}/).filter(Boolean).map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
 
 // localStorage can throw (private mode) or be wiped; the app must work without it.
 const NS = 'grandtour:';
