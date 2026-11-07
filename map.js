@@ -36,6 +36,22 @@ export async function drawMap(el, data, { kindLabel, statusLabel }) {
   const line = stops.map((s) => [s.lat, s.lon]);
   L.polyline(line, { color: '#292D26', weight: 1.6, opacity: 0.75, dashArray: '2 6', lineCap: 'round' }).addTo(map);
 
+  // Home: where the journey starts and ends.
+  const home = data.trip.home;
+  if (home) {
+    const h = [home.lat, home.lon];
+    const legs = { color: '#AD7954', weight: 1.4, opacity: 0.8, dashArray: '1 6', lineCap: 'round' };
+    L.polyline([h, line[0]], legs).addTo(map);
+    L.polyline([line[line.length - 1], ...(home.returnVia || []), h], legs).addTo(map);
+    L.marker(h, {
+      icon: L.divIcon({ className: '', html: '<div class="pin home"><svg viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v9h11v-9"/></svg></div>', iconSize: [24, 24], iconAnchor: [12, 12] }),
+      zIndexOffset: 1000,
+    }).addTo(map)
+      .bindTooltip(esc(home.name), { permanent: true, direction: 'right', className: 'stop-label', offset: [12, 0] })
+      .bindPopup(`<p class="eyebrow">Home</p><p class="row-title">${esc(home.name)}</p><p class="row-sub">Departure ${esc(data.trip.start)} · return ${esc(data.trip.end)}</p>`);
+    line.push(h);
+  }
+
   for (const s of stops) {
     L.marker([s.lat, s.lon], {
       icon: L.divIcon({ className: '', html: '<div class="pin stop"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }),

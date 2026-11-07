@@ -164,7 +164,7 @@ function expRow(e, { showStop = false, showDate = true } = {}) {
     <div class="row-body">
       <p class="row-title">${esc(e.name)}</p>
       ${e.tagline ? `<p class="row-sub">${esc(e.tagline)}</p>` : ''}
-      <div class="meta">${ic(e.kind)}${showStop && stop ? `<span>${esc(stop.name)}</span>` : ''}${showDate && when ? `<span class="num">${esc(when)}</span>` : ''}${statusTag(e.status)}</div>
+      <div class="meta">${ic(e.kind)}${e.via ? `<span>On the way · ${esc(e.via)}</span>` : ''}${showStop && stop && !e.via ? `<span>${esc(stop.name)}</span>` : ''}${showDate && when ? `<span class="num">${esc(when)}</span>` : ''}${statusTag(e.status)}</div>
     </div>
     ${ic('chevron', 'chev')}
   </a>`;
@@ -432,6 +432,11 @@ function viewExperiences(params) {
       return `<section class="section"><div class="section-head"><p class="eyebrow">${ROMAN[s.n]} · ${esc(s.name)}</p><span class="meta num">${esc(range(s.arrive, s.depart))}</span></div>
         <div class="rows">${items.map((e) => expRow(e)).join('')}</div></section>`;
     }).join('') || '<div class="empty-state"><p class="lede">Nothing here yet.</p></div>'}
+    ${(() => {
+      const home = list.filter((e) => !e.stop);
+      return home.length ? `<section class="section"><div class="section-head"><p class="eyebrow">On the way home</p><span class="meta num">${esc(dayMonth(DATA.trip.end))}</span></div>
+        <div class="rows">${home.map((e) => expRow(e)).join('')}</div></section>` : '';
+    })()}
   </div>`;
 }
 
@@ -458,12 +463,15 @@ function entryHtml(n) {
   const e = n.exp && expById(n.exp);
   const ratio = n.w && n.h ? `aspect-ratio:${n.w}/${n.h}` : 'aspect-ratio:4/3';
   return `<article class="entry">
-    <p class="by">${esc(n.author)} · ${esc(shortDate(n.day))}${e ? ` · <a href="#/exp/${esc(e.id)}">${esc(e.name)}</a>` : ''}
+    <p class="by">${esc(n.author)} · <button class="entry-day" data-move="${esc(n.id)}" aria-label="Change the day">${esc(shortDate(n.day))}</button>${e ? ` · <a href="#/exp/${esc(e.id)}">${esc(e.name)}</a>` : ''}
       <button class="entry-del" data-del="${esc(n.id)}" aria-label="Remove">Remove</button></p>
     ${n.type === 'photo' ? `<figure class="jphoto"><div class="photo" style="${ratio}"><img data-ph="${esc(n.id)}" alt=""></div>${n.caption ? `<figcaption>${esc(n.caption)}</figcaption>` : ''}</figure>` : ''}
     ${n.text ? `<div class="prose">${paras(n.text)}</div>` : ''}
   </article>`;
 }
+
+// Every day of the trip, for attributing an entry or photo to a day other than today.
+const dayOptions = (selected) => tripDays().map((d) => `<option value="${d.date}"${d.date === selected ? ' selected' : ''}>Day ${d.n} · ${esc(longDate(d.date))}</option>`).join('');
 
 function syncLine() {
   if (!NOTES) return '';
@@ -483,13 +491,13 @@ function viewJournal(params) {
     <section class="head plain-head">
       <p class="eyebrow ruled">${esc((DATA.trip.travellers || []).join(' & '))}</p>
       <h1 class="title">Journal</h1>
-      <p class="lede">Small observations, memorable meals, places worth remembering.</p>
+      <p class="lede">Small observations become subtle memories.</p>
     </section>
     <section class="section">
       <form class="composer" id="composer">
         <div class="who">${(DATA.trip.travellers || []).map((p) => `<button type="button" class="chip" data-who="${esc(p)}" aria-pressed="${p === who}">${esc(p)}</button>`).join('')}</div>
-        <label class="sr-only" for="j-day">Day</label>
-        <select id="j-day" class="chip" style="appearance:none;padding-right:14px">${days.map((d) => `<option value="${d.date}"${d.date === day ? ' selected' : ''}>Day ${d.n} · ${esc(shortDate(d.date))}</option>`).join('')}</select>
+        <label class="day-pick"><span class="eyebrow">For</span>
+          <select id="j-day">${dayOptions(day)}</select>${ic('chevron', 'chev down')}</label>
         ${exp ? `<input type="hidden" id="j-exp" value="${esc(exp)}"><p class="meta" style="margin-top:10px">About: ${esc(expById(exp)?.name || '')}</p>` : ''}
         <textarea id="j-text" placeholder="What stayed with us today…" rows="4">${esc(draft)}</textarea>
         <div class="actions" style="padding:14px 0 0">
@@ -697,6 +705,20 @@ document.addEventListener('click', (ev) => {
   const del = ev.target.closest('[data-del]');
   if (del) {
     if (confirm('Remove this entry? It disappears on both phones.')) NOTES.remove(del.dataset.del);
+    return;
+  }
+  const move = ev.target.closest('[data-move]');
+  if (move) {
+    const n = NOTES.list().find((x) => x.id === move.dataset.move);
+    if (!n) return;
+    const sel = document.createElement('select');
+    sel.className = 'entry-day-select';
+    sel.setAttribute('aria-label', 'Move to day');
+    sel.innerHTML = dayOptions(n.day);
+    move.replaceWith(sel);
+    sel.focus();
+    sel.addEventListener('change', () => { NOTES.save({ ...n, day: sel.value }); toast(`Moved to ${shortDate(sel.value)}`); });
+    sel.addEventListener('blur', () => { if (sel.value === n.day) onNotesChange(); });
     return;
   }
   const more = ev.target.closest('[data-readon]');

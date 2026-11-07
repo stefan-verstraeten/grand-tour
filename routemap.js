@@ -72,10 +72,10 @@ export function routeMap(stops, { aspect = 0.82, pad = 70, home = null, widthPx 
     const last = pts[pts.length - 1].xy;
     if (home) {
       const h = project(home.lon, home.lat);
-      homeLeg = `<path class="home-leg" style="stroke-width:${(1.1 * u).toFixed(2)}" d="M${h[0]},${h[1]} L${first[0]},${first[1]}"/>`
-        + `<path class="home-leg" style="stroke-width:${(1.1 * u).toFixed(2)}" d="${smooth([last, [(last[0] + h[0]) / 2 - 40, (last[1] + h[1]) / 2], h], 0.4)}"/>`
-        + `<circle class="stop open" cx="${h[0]}" cy="${h[1]}" r="${4 * u}"/>`
-        + `<text class="label" style="${fs(15)}" x="${h[0] + 9 * u}" y="${h[1] + 5 * u}">${esc(home.name || 'Home')}</text>`;
+      homeLeg = `<path class="home-leg" style="stroke-width:${(1.6 * u).toFixed(2)};stroke-dasharray:${(1 * u).toFixed(1)} ${(5 * u).toFixed(1)}" d="M${h[0]},${h[1]} L${first[0]},${first[1]}"/>`
+        + `<path class="home-leg" style="stroke-width:${(1.6 * u).toFixed(2)};stroke-dasharray:${(1 * u).toFixed(1)} ${(5 * u).toFixed(1)}" d="${smooth([last, ...(home.returnVia || []).map(([la, lo]) => project(lo, la)), h], 0.4)}"/>`
+        + `<g class="home" transform="translate(${h[0]} ${h[1]}) scale(${(0.62 * u).toFixed(3)})"><circle r="13"/><path d="M-6.5 0.5 0-5l6.5 5.5M-4.5-1v6.5h9V-1"/></g>`
+        + `<text class="label strong" style="${fs(15.5)};stroke-width:${(4 * u).toFixed(1)}px" x="${h[0] + 12 * u}" y="${h[1] + 5 * u}">${esc(home.name || 'Home')}</text>`;
     } else {
       // Home not set yet: a short dotted stub from the north-west.
       const s = [first[0] - 34 * u, first[1] - 44 * u];
