@@ -1,0 +1,635 @@
+import { decryptJSON, importContentKey, decryptBytes } from './crypto.js';
+import { routeMap } from './routemap.js';
+
+const $ = (sel, el = document) => el.querySelector(sel);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const paras = (text) => String(text || '').split(/\n{2,}/).filter(Boolean).map((p) => `<p>${esc(p)}</p>`).join('');
+
+// localStorage can throw (private mode) or be wiped; the app must work without it.
+const NS = 'grandtour:';
+const store = {
+  get(k, fallback = null) { try { const v = localStorage.getItem(NS + k); return v === null ? fallback : JSON.parse(v); } catch { return fallback; } },
+  set(k, v) { try { localStorage.setItem(NS + k, JSON.stringify(v)); } catch { /* ignore */ } },
+};
+
+let DATA = null;
+let KEY = null;
+let DEV = false; // plaintext data from private/, only ever on a local dev server
+
+/* ---------- icons: fine line drawings in ink ---------- */
+
+const ICONS = {
+  cuisine: '<path d="M3.5 17.5h17"/><path d="M5 17.5a7 7 0 0 1 14 0"/><path d="M12 10.5V9"/><path d="M10.4 8.6h3.2"/>',
+  culture: '<path d="M3.5 9 12 4.5 20.5 9"/><path d="M4.5 19.5h15"/><path d="M6.5 10.5v7M10 10.5v7M14 10.5v7M17.5 10.5v7"/><path d="M4.5 9.5h15"/>',
+  nature: '<path d="M2.5 18.5 9 9l3.6 5.2L15 11l6.5 7.5z"/><path d="M7.2 11.7 9 13l1.6-1.4"/>',
+  drive: '<path d="M4.5 15.5v-3l2-5h11l2 5v3z"/><path d="M4.5 15.5v2h2.5v-2M17 15.5v2h2.5v-2"/><circle cx="8" cy="13" r=".6"/><circle cx="16" cy="13" r=".6"/><path d="M6.8 10.2h10.4"/>',
+  stay: '<path d="M3.5 18.5v-11"/><path d="M3.5 14.5h17v4"/><path d="M20.5 14.5v-2.5a2.5 2.5 0 0 0-2.5-2.5h-7v5"/><circle cx="7" cy="11.5" r="1.6"/>',
+  pin: '<path d="M12 21s6.5-6.1 6.5-11a6.5 6.5 0 0 0-13 0c0 4.9 6.5 11 6.5 11z"/><circle cx="12" cy="10" r="2.2"/>',
+  phone: '<path d="M6.5 3.5h3l1.5 4-2 1.5a10 10 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2 2A16 16 0 0 1 4.5 5.5a2 2 0 0 1 2-2z"/>',
+  web: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 3.5 5.4 3.5 8.5s-1 5.9-3.5 8.5c-2.5-2.6-3.5-5.4-3.5-8.5s1-5.9 3.5-8.5z"/>',
+  directions: '<path d="M20 4 4 11l7 2 2 7z"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  pen: '<path d="M4.5 19.5h4l10-10-4-4-10 10z"/><path d="M13 7l4 4"/>',
+  practical: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><path d="M12 7.8v.1"/>',
+  chevron: '<path d="M9 5l7 7-7 7"/>',
+};
+const ic = (name, cls = 'ki') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
+const ORNAMENT = '<svg class="ornament" viewBox="0 0 54 14" aria-hidden="true"><path d="M0 7h20M34 7h20"/><path d="M27 2.5 31.5 7 27 11.5 22.5 7z"/></svg>';
+
+const KIND = {
+  cuisine: { label: 'Cuisine', section: 'At the table', plural: 'Tables' },
+  culture: { label: 'Culture', section: 'Culture & heritage', plural: 'Culture' },
+  nature: { label: 'Nature', section: 'Landscapes & walks', plural: 'Nature' },
+};
+const STATUS = { idea: 'Idea', planned: 'Planned', tbc: 'To confirm', booked: 'Booked', visited: 'Visited' };
+
+/* ---------- dates ---------- */
+
+const DAY_MS = 86400000;
+const parseDate = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
+const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const todayIso = () => store.get('debug:today') || isoOf(new Date());
+const fmt = (iso, opts) => parseDate(iso).toLocaleDateString('en-GB', opts);
+const dayMonth = (iso) => fmt(iso, { day: 'numeric', month: 'short' });
+const longDate = (iso) => fmt(iso, { weekday: 'long', day: 'numeric', month: 'long' });
+const shortDate = (iso) => fmt(iso, { weekday: 'short', day: 'numeric', month: 'short' });
+const range = (a, b) => {
+  if (!a) return '';
+  if (!b || a === b) return dayMonth(a);
+  const [da, db] = [parseDate(a), parseDate(b)];
+  return da.getMonth() === db.getMonth() ? `${da.getDate()}–${dayMonth(b)}` : `${dayMonth(a)} – ${dayMonth(b)}`;
+};
+const nights = (s) => Math.round((parseDate(s.depart) - parseDate(s.arrive)) / DAY_MS);
+const hours = (h) => { if (h == null) return ''; const m = Math.round(h * 60); return `${Math.floor(m / 60)} h${m % 60 ? ` ${String(m % 60).padStart(2, '0')}` : ''}`; };
+const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+
+function tripDays() {
+  const byDate = new Map((DATA.days || []).map((d) => [d.date, d]));
+  const out = [];
+  for (let d = parseDate(DATA.trip.start), n = 1; d <= parseDate(DATA.trip.end); d = new Date(d.getTime() + DAY_MS), n++) {
+    const iso = isoOf(d);
+    out.push({ n, date: iso, title: 'To be planned', legs: [], plan: [], ...(byDate.get(iso) || {}) });
+  }
+  return out;
+}
+
+function tripPhase() {
+  const t = todayIso();
+  if (t < DATA.trip.start) return { phase: 'before', days: Math.round((parseDate(DATA.trip.start) - parseDate(t)) / DAY_MS) };
+  if (t > DATA.trip.end) return { phase: 'after' };
+  return { phase: 'during', day: tripDays().find((d) => d.date === t) };
+}
+
+const stopById = (id) => DATA.stops.find((s) => s.id === id);
+const expById = (id) => DATA.experiences.find((e) => e.id === id);
+const expsAt = (stopId, kind) => DATA.experiences.filter((e) => e.stop === stopId && (!kind || e.kind === kind));
+const currentStop = () => {
+  const p = tripPhase();
+  if (p.phase === 'during') return stopById(p.day.stop) || null;
+  return null;
+};
+
+/* ---------- photos ---------- */
+
+const imgUrls = new Map();
+
+function imageUrl(name) {
+  if (DEV) return Promise.resolve(`private/img/${encodeURIComponent(name)}.jpg`);
+  const meta = DATA.images?.[name];
+  if (!meta) return Promise.resolve(null);
+  if (!imgUrls.has(name)) {
+    imgUrls.set(name, fetch(`data/img/${meta.id}.bin`)
+      .then((r) => { if (!r.ok) throw new Error(); return r.arrayBuffer(); })
+      .then((buf) => decryptBytes(KEY, buf))
+      .then((bytes) => URL.createObjectURL(new Blob([bytes], { type: meta.type })))
+      .catch(() => { imgUrls.delete(name); return null; }));
+  }
+  return imgUrls.get(name);
+}
+
+function photo(name, cls = 'photo', { credit = false } = {}) {
+  if (!name) return `<div class="${cls} photo empty"></div>`;
+  const c = credit && DATA.credits?.[name];
+  return `<div class="${cls} photo"><img data-img="${esc(name)}" alt="">${c ? `<a class="credit" href="${esc(c.source)}" target="_blank" rel="noopener">© ${esc(c.author)} · ${esc(c.license)}</a>` : ''}</div>`;
+}
+
+function hydrateImages(root = document) {
+  root.querySelectorAll('img[data-img]:not([src])').forEach(async (el) => {
+    const url = await imageUrl(el.dataset.img);
+    if (!url) { el.closest('.photo')?.classList.add('empty'); return; }
+    el.onload = () => el.closest('.photo')?.classList.add('loaded');
+    el.onerror = () => el.closest('.photo')?.classList.add('empty');
+    el.src = url;
+  });
+}
+
+const expImage = (e) => e.img || null;
+
+/* ---------- small helpers ---------- */
+
+const isApple = /iPhone|iPad|Macintosh/.test(navigator.userAgent);
+const mapsLink = (place) => {
+  const q = place.address || place.name;
+  if (place.lat && !place.address) return isApple ? `https://maps.apple.com/?ll=${place.lat},${place.lon}&q=${encodeURIComponent(place.name)}` : `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lon}`;
+  return isApple ? `https://maps.apple.com/?q=${encodeURIComponent(q)}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+};
+const telHref = (p) => `tel:${p.replace(/[^+\d]/g, '')}`;
+
+function toast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.append(el);
+  setTimeout(() => el.remove(), 2200);
+}
+
+const statusTag = (s) => (s ? `<span class="status ${esc(s)}">${esc(STATUS[s] || s)}</span>` : '');
+
+function expRow(e, { showStop = false, showDate = true } = {}) {
+  const stop = stopById(e.stop);
+  const when = e.date ? `${shortDate(e.date)}${e.meal ? ` · ${e.meal}` : ''}${e.time ? ` · ${e.time}` : ''}` : '';
+  const img = expImage(e);
+  return `<a class="row" href="#/exp/${esc(e.id)}">
+    ${img ? photo(img, 'thumb') : ''}
+    <div class="row-body">
+      <p class="row-title">${esc(e.name)}</p>
+      ${e.tagline ? `<p class="row-sub">${esc(e.tagline)}</p>` : ''}
+      <div class="meta">${ic(e.kind)}${showStop && stop ? `<span>${esc(stop.name)}</span>` : ''}${showDate && when ? `<span class="num">${esc(when)}</span>` : ''}${statusTag(e.status)}</div>
+    </div>
+    ${ic('chevron', 'chev')}
+  </a>`;
+}
+
+/* ---------- views ---------- */
+
+function viewJourney() {
+  const t = DATA.trip;
+  const phase = tripPhase();
+  const now = currentStop();
+  const stops = DATA.stops;
+  const cover = (now && now.img) || t.cover || stops[0]?.img;
+  const [first, last] = [stops[0], stops[stops.length - 1]];
+
+  let status = '';
+  if (phase.phase === 'before') status = phase.days === 1 ? 'We leave tomorrow' : `${phase.days} days until we leave`;
+  else if (phase.phase === 'during') status = `Day ${phase.day.n} of ${tripDays().length} · ${esc(phase.day.title)}`;
+  else status = 'Home again. The journal remains.';
+
+  const startD = parseDate(t.start);
+  const endD = parseDate(t.end);
+
+  // Up next: today's or the coming chapter; tables are the highlights of each day.
+  const upcoming = phase.phase === 'during'
+    ? (stopById(tripDays().find((d) => d.date > todayIso() && d.stop && d.stop !== phase.day.stop)?.stop) || now)
+    : first;
+  const tables = DATA.experiences.filter((e) => e.kind === 'cuisine' && e.date).sort((a, b) => a.date.localeCompare(b.date));
+
+  return `<div class="page">
+    <section class="cover">
+      <p class="eyebrow">Europe · ${esc(t.edition || '')}</p>
+      <h1 class="display">${esc(t.title)}</h1>
+      <p class="lede">${esc(t.subtitle || '')}</p>
+      <div class="cover-tools"><a class="icon-btn" href="#/practical" aria-label="Practical">${ic('practical', '')}</a></div>
+    </section>
+    ${photo(cover, 'cover-photo', { credit: true })}
+    <a class="band" href="#/days">
+      <div class="dates">
+        <span class="d"><b class="num">${startD.getDate()}</b><span>${esc(fmt(t.start, { month: 'short' }))}</span></span>
+        <span class="dash"></span>
+        <span class="d"><b class="num">${endD.getDate()}</b><span>${esc(fmt(t.end, { month: 'short' }))}</span></span>
+      </div>
+      <div>
+        <p class="h3">${esc(first?.name)} to ${esc(last?.name)}</p>
+        <p class="italic">${stops.length} chapters · tables, art &amp; landscape</p>
+      </div>
+      ${ic('chevron', 'chev')}
+    </a>
+    <div class="map-frame">
+      <a href="#/map" aria-label="Open the map">${routeMap(stops.map((s) => ({ ...s, now: now?.id === s.id })), { aspect: 0.8, home: t.home, widthPx: Math.min(innerWidth || 400, 640) })}</a>
+      <a class="map-link" href="#/map">Open map</a>
+    </div>
+    <p class="status-line"><span class="eyebrow">${phase.phase === 'during' ? 'Today' : 'Departure'}</span><span class="meta">${status}</span></p>
+
+    ${upcoming ? `<section class="section">
+      <div class="section-head"><p class="eyebrow">${phase.phase === 'during' ? 'Up next' : 'First chapter'}</p></div>
+      <a class="next" href="#/stop/${esc(upcoming.id)}">
+        ${photo(upcoming.img)}
+        <div class="row-body">
+          <p class="h2">${esc(upcoming.name)}</p>
+          <p class="meta num">${esc(range(upcoming.arrive, upcoming.depart))} · ${nights(upcoming)} night${nights(upcoming) === 1 ? '' : 's'}</p>
+          <p class="row-sub">${esc(upcoming.tagline)}</p>
+        </div>
+        ${ic('chevron', 'chev')}
+      </a>
+    </section>` : ''}
+
+    ${tables.length ? `<section class="section">
+      <div class="section-head"><p class="eyebrow">The great tables</p><a href="#/experiences?k=cuisine">All</a></div>
+      <div class="rows">${tables.map((e) => expRow(e, { showStop: true })).join('')}</div>
+    </section>` : ''}
+
+    <section class="section">
+      <div class="section-head"><p class="eyebrow">The chapters</p><a href="#/days">Day by day</a></div>
+      <ol class="rows">${stops.map((s) => `<li><a class="chapter${s.tentative ? ' tentative' : ''}" href="#/stop/${esc(s.id)}">
+        <span class="numeral">${ROMAN[s.n] || s.n}</span>
+        <span class="row-body">
+          <span class="when num">${esc(range(s.arrive, s.depart))}${s.tentative ? ' · provisional' : ''}</span>
+          <p class="row-title">${esc(s.name)}</p>
+          <p class="row-sub">${esc(s.tagline)}</p>
+        </span>
+        ${photo(s.img, 'thumb sq')}
+      </a></li>`).join('')}</ol>
+    </section>
+
+    <footer class="footer">${ORNAMENT}<p class="eyebrow"><a href="#/practical">Practical</a> &nbsp;·&nbsp; <a href="#/practical#credits">Photo credits</a></p></footer>
+  </div>`;
+}
+
+function viewDays() {
+  const days = tripDays();
+  let lastStop = null;
+  return `<div class="page">
+    <section class="head plain-head">
+      <p class="eyebrow ruled">${days.length} days</p>
+      <h1 class="title">Day by day</h1>
+      <p class="lede">${esc(range(DATA.trip.start, DATA.trip.end))}</p>
+    </section>
+    <section class="section"><div class="rows">${days.map((d) => {
+      const stop = stopById(d.stop);
+      const head = stop && stop.id !== lastStop ? `<p class="eyebrow" style="padding:22px 0 6px;color:var(--ochre)">${ROMAN[stop.n]} · ${esc(stop.name)}</p>` : '';
+      lastStop = stop?.id || lastStop;
+      const items = (d.plan || []).map(expById).filter(Boolean);
+      const drive = (d.legs || [])[0];
+      return `${head}<a class="row" href="#/day/${d.date}">
+        <div class="row-body">
+          <span class="when meta num" style="margin:0">Day ${d.n} · ${esc(shortDate(d.date))}${d.tentative ? ' · provisional' : ''}</span>
+          <p class="row-title">${esc(d.title)}</p>
+          <div class="meta">${drive ? `<span>${ic('drive')}${esc(drive.from)} → ${esc(drive.to)}${drive.hours ? ` · ${hours(drive.hours)}` : ''}</span>` : ''}${items.filter((e) => e.kind === 'cuisine').map((e) => `<span>${ic('cuisine')}${esc(e.name)}</span>`).join('')}</div>
+        </div>${ic('chevron', 'chev')}</a>`;
+    }).join('')}</div></section>
+  </div>`;
+}
+
+function viewStop(id) {
+  const s = stopById(id);
+  if (!s) return notFound();
+  const days = tripDays().filter((d) => d.stop === s.id);
+  const kinds = Object.keys(KIND).map((k) => ({ k, items: expsAt(s.id, k) }));
+  return {
+    title: s.name,
+    html: `<div class="page">
+    ${photo(s.img, 'hero', { credit: true })}
+    <section class="head">
+      <p class="eyebrow ruled">Chapter ${ROMAN[s.n] || s.n} · ${esc(range(s.arrive, s.depart))}${s.tentative ? ' · provisional' : ''}</p>
+      <h1 class="title">${esc(s.name)}</h1>
+      <p class="lede">${esc(s.tagline)}</p>
+      <div class="prose">${paras(s.intro)}</div>
+    </section>
+    <div class="pad"><div class="kinds">${kinds.map(({ k, items }) => `<a class="kind${items.length ? '' : ' off'}" href="#/stop/${esc(s.id)}?k=${k}" data-jump="${k}"><i>${ic(k, '')}</i>${KIND[k].label}<small>${items.length || '—'}</small></a>`).join('')}</div></div>
+    ${kinds.filter((x) => x.items.length).map(({ k, items }) => `<section class="section" id="sec-${k}">
+      <div class="section-head"><p class="eyebrow">${KIND[k].section}</p></div>
+      <div class="rows">${items.map((e) => expRow(e)).join('')}</div>
+    </section>`).join('')}
+    <section class="section">
+      <div class="section-head"><p class="eyebrow">Where we stay</p></div>
+      ${s.stay ? `<div class="row"><div class="row-body"><p class="row-title">${esc(s.stay.name)}</p><p class="meta">${esc(s.stay.address || '')}</p></div></div>`
+        : `<p class="tbd">To be booked · ${nights(s)} night${nights(s) === 1 ? '' : 's'}</p>`}
+    </section>
+    <section class="section">
+      <div class="section-head"><p class="eyebrow">The days</p></div>
+      <div class="rows">${days.map((d) => `<a class="row" href="#/day/${d.date}"><div class="row-body"><span class="when meta num" style="margin:0">Day ${d.n} · ${esc(shortDate(d.date))}</span><p class="row-title">${esc(d.title)}</p></div>${ic('chevron', 'chev')}</a>`).join('')}</div>
+    </section>
+    <div class="actions"><a class="btn wide" href="${esc(mapsLink(s))}" target="_blank" rel="noopener">${ic('directions', '')}Directions</a></div>
+  </div>`,
+  };
+}
+
+function viewExperience(id) {
+  const e = expById(id);
+  if (!e) return notFound();
+  const stop = stopById(e.stop);
+  const facts = [];
+  if (e.date) facts.push(['When', `<span class="num">${esc(longDate(e.date))}${e.meal ? ` · ${esc(e.meal)}` : ''}${e.time ? ` · ${esc(e.time)}` : ''}</span>`]);
+  if (e.chef) facts.push(['Chef', esc(e.chef)]);
+  if (e.distinction) facts.push(['Guide', esc(e.distinction)]);
+  if (e.address) facts.push(['Address', `<a href="${esc(mapsLink(e))}" target="_blank" rel="noopener">${esc(e.address)}</a>`]);
+  if (e.phone) facts.push(['Phone', `<a href="${telHref(e.phone)}">${esc(e.phone)}</a>`]);
+  if (e.booking) facts.push(['Booking', esc([e.booking.ref, e.booking.for].filter(Boolean).join(' · '))]);
+  if (e.kind === 'cuisine' && !e.booking) facts.push(['Booking', '<span class="tbd">Not yet booked</span>']);
+  const notes = journal().filter((n) => n.exp === e.id);
+  return {
+    title: e.name,
+    html: `<div class="page">
+    ${photo(expImage(e) || stop?.img, 'hero', { credit: true })}
+    <section class="head">
+      <p class="eyebrow ruled">${esc(KIND[e.kind]?.label)} · ${esc(stop?.name || '')}</p>
+      <h1 class="title">${esc(e.name)}</h1>
+      ${e.tagline ? `<p class="lede">${esc(e.tagline)}</p>` : ''}
+      <p style="margin-top:14px">${statusTag(e.status)}</p>
+      <div class="prose">${paras(e.about)}</div>
+    </section>
+    ${facts.length ? `<section class="section"><dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></section>` : ''}
+    ${e.note ? `<section class="section"><div class="section-head"><p class="eyebrow">Note</p></div><p class="prose">${esc(e.note)}</p></section>` : ''}
+    ${e.highlights?.length ? `<section class="section"><div class="section-head"><p class="eyebrow">${e.kind === 'cuisine' ? 'On the menu' : 'Not to miss'}</p></div><ul class="list-dash">${e.highlights.map((h) => `<li>${esc(h)}</li>`).join('')}</ul></section>` : ''}
+    <section class="section">
+      <div class="section-head"><p class="eyebrow">Our impressions</p><a href="#/journal?exp=${esc(e.id)}${e.date ? `&day=${e.date}` : ''}">Write</a></div>
+      ${notes.length ? notes.map(entryHtml).join('') : `<p class="tbd">${e.status === 'visited' ? 'Nothing written yet.' : 'After the visit: what we ate, what we saw, what stayed with us.'}</p>`}
+    </section>
+    <div class="actions">
+      ${e.lat || e.address ? `<a class="btn wide" href="${esc(mapsLink(e))}" target="_blank" rel="noopener">${ic('directions', '')}Directions</a>` : ''}
+      ${e.phone ? `<a class="btn ghost" href="${telHref(e.phone)}">${ic('phone', '')}Call</a>` : ''}
+      ${e.web ? `<a class="btn ghost" href="${esc(e.web)}" target="_blank" rel="noopener">${ic('web', '')}Website</a>` : ''}
+    </div>
+  </div>`,
+  };
+}
+
+function viewDay(date) {
+  const days = tripDays();
+  const i = days.findIndex((d) => d.date === date);
+  if (i < 0) return notFound();
+  const d = days[i];
+  const stop = stopById(d.stop);
+  const prev = days[i - 1];
+  const next = days[i + 1];
+  const items = [];
+  for (const leg of d.legs || []) {
+    items.push(`<li class="tl drive"><span class="t">${esc(leg.depart || '')}</span><span class="dot"></span><div>
+      <p class="row-title">${esc(leg.from)} → ${esc(leg.to)}</p>
+      <p class="row-sub">${[leg.km ? `${leg.km} km` : '', leg.hours ? `about ${hours(leg.hours)}` : '', leg.via ? `via ${leg.via}` : ''].filter(Boolean).join(' · ') || 'Route to be planned'}</p>
+    </div></li>`);
+  }
+  for (const id of d.plan || []) {
+    const e = expById(id);
+    if (!e) continue;
+    items.push(`<li class="tl ${esc(e.kind)}"><span class="t">${esc(e.time || (e.meal ? e.meal.slice(0, 5) : ''))}</span><span class="dot"></span><a href="#/exp/${esc(e.id)}">
+      <p class="row-title">${esc(e.name)}</p>
+      ${e.tagline ? `<p class="row-sub">${esc(e.tagline)}</p>` : ''}
+      <div class="meta">${ic(e.kind)}${statusTag(e.status)}</div>
+    </a></li>`);
+  }
+  if (stop && d.date < stop.depart) {
+    items.push(`<li class="tl stay"><span class="t">Night</span><span class="dot"></span><div>
+      <p class="row-title">${esc(stop.stay?.name || `${stop.name}`)}</p>
+      <p class="row-sub">${stop.stay ? esc(stop.stay.address || '') : 'Hotel to be booked'}</p>
+    </div></li>`);
+  }
+  const notes = journal().filter((n) => n.day === d.date);
+  return {
+    title: `Day ${d.n}`,
+    html: `<div class="page">
+    <section class="head plain-head">
+      <p class="eyebrow ruled">Day ${d.n} · ${esc(longDate(d.date))}</p>
+      <h1 class="title">${esc(d.title)}</h1>
+      ${stop ? `<p class="lede"><a href="#/stop/${esc(stop.id)}">Chapter ${ROMAN[stop.n]} · ${esc(stop.name)}</a>${d.tentative ? ' · provisional' : ''}</p>` : ''}
+    </section>
+    <nav class="daynav">
+      <a class="${prev ? '' : 'off'}" href="#/day/${prev?.date || ''}">‹ ${prev ? esc(shortDate(prev.date)) : ''}</a>
+      <a class="${next ? '' : 'off'}" href="#/day/${next?.date || ''}">${next ? esc(shortDate(next.date)) : ''} ›</a>
+    </nav>
+    <section class="section">
+      ${items.length ? `<ol class="timeline">${items.join('')}</ol>` : '<p class="tbd">A free day, for now.</p>'}
+    </section>
+    ${d.note ? `<section class="section"><div class="prose">${paras(d.note)}</div></section>` : ''}
+    <section class="section">
+      <div class="section-head"><p class="eyebrow">Journal</p><a href="#/journal?day=${d.date}">Write</a></div>
+      ${notes.length ? notes.map(entryHtml).join('') : '<p class="tbd">Nothing written for this day yet.</p>'}
+    </section>
+  </div>`,
+  };
+}
+
+function viewExperiences(params) {
+  const k = params.get('k') || 'all';
+  const list = DATA.experiences.filter((e) => k === 'all' || e.kind === k);
+  return `<div class="page">
+    <section class="head plain-head">
+      <p class="eyebrow ruled">${DATA.experiences.length} experiences</p>
+      <h1 class="title">Experiences</h1>
+      <p class="lede">What we'd like to taste, see and walk.</p>
+    </section>
+    <div class="seg" role="group" aria-label="Filter">${[['all', 'All'], ...Object.entries(KIND).map(([key, v]) => [key, v.label])].map(([key, label]) => `<button data-k="${key}" aria-pressed="${k === key}">${label}</button>`).join('')}</div>
+    ${DATA.stops.map((s) => {
+      const items = list.filter((e) => e.stop === s.id);
+      if (!items.length) return '';
+      return `<section class="section"><div class="section-head"><p class="eyebrow">${ROMAN[s.n]} · ${esc(s.name)}</p><span class="meta num">${esc(range(s.arrive, s.depart))}</span></div>
+        <div class="rows">${items.map((e) => expRow(e)).join('')}</div></section>`;
+    }).join('') || '<div class="empty-state"><p class="lede">Nothing here yet.</p></div>'}
+  </div>`;
+}
+
+/* ---------- journal (kept on this phone for now; shared sync comes next) ---------- */
+
+const journal = () => Object.values(store.get('journal', {})).filter((n) => !n.deleted).sort((a, b) => (a.day + a.created).localeCompare(b.day + b.created));
+
+function entryHtml(n) {
+  const e = n.exp && expById(n.exp);
+  return `<article class="entry">
+    <p class="by">${esc(n.author)} · ${esc(shortDate(n.day))}${e ? ` · <a href="#/exp/${esc(e.id)}">${esc(e.name)}</a>` : ''}</p>
+    <div class="prose">${paras(n.text)}</div>
+  </article>`;
+}
+
+function viewJournal(params) {
+  const days = tripDays();
+  const t = todayIso();
+  const day = params.get('day') || (days.find((d) => d.date === t) || days[0]).date;
+  const exp = params.get('exp') || '';
+  const who = store.get('me', DATA.trip.travellers?.[0] || '');
+  const entries = journal();
+  const byDay = days.map((d) => ({ d, items: entries.filter((n) => n.day === d.date) })).filter((x) => x.items.length);
+  return `<div class="page">
+    <section class="head plain-head">
+      <p class="eyebrow ruled">${esc((DATA.trip.travellers || []).join(' & '))}</p>
+      <h1 class="title">Journal</h1>
+      <p class="lede">Small observations, memorable meals, places worth remembering.</p>
+    </section>
+    <section class="section">
+      <form class="composer" id="composer">
+        <div class="who">${(DATA.trip.travellers || []).map((p) => `<button type="button" class="chip" data-who="${esc(p)}" aria-pressed="${p === who}">${esc(p)}</button>`).join('')}</div>
+        <label class="sr-only" for="j-day">Day</label>
+        <select id="j-day" class="chip" style="appearance:none;padding-right:14px">${days.map((d) => `<option value="${d.date}"${d.date === day ? ' selected' : ''}>Day ${d.n} · ${esc(shortDate(d.date))}</option>`).join('')}</select>
+        ${exp ? `<input type="hidden" id="j-exp" value="${esc(exp)}"><p class="meta" style="margin-top:10px">About: ${esc(expById(exp)?.name || '')}</p>` : ''}
+        <textarea id="j-text" placeholder="What stayed with us today…" rows="4"></textarea>
+        <div class="actions" style="padding:14px 0 0"><button class="btn wide" type="submit">${ic('pen', '')}Add to the journal</button></div>
+      </form>
+    </section>
+    ${byDay.length ? byDay.map(({ d, items }) => `<section class="section">
+      <div class="section-head"><p class="eyebrow">Day ${d.n} · ${esc(shortDate(d.date))}</p><a href="#/day/${d.date}">${esc(stopById(d.stop)?.name || 'Day')}</a></div>
+      ${items.map(entryHtml).join('')}
+    </section>`).join('') : `<div class="empty-state">${ORNAMENT}<p class="h2">The journal begins on ${esc(fmt(DATA.trip.start, { day: 'numeric', month: 'long' }))}</p><p class="lede">Each day gathers the notes and photographs you both add.</p></div>`}
+  </div>`;
+}
+
+function viewReading() {
+  const passages = DATA.passages || [];
+  return `<div class="page">
+    <section class="head plain-head">
+      <p class="eyebrow ruled">A literary companion</p>
+      <h1 class="title">Reading</h1>
+      <p class="lede">Passages for the road, gathered by place.</p>
+    </section>
+    ${passages.length ? '' : `<div class="empty-state">${ORNAMENT}<p class="h2">No passages yet</p><p class="lede">Stendhal in Modena, Petrarch in Avignon, Katherine Mansfield in Menton: to be gathered before we leave.</p></div>`}
+  </div>`;
+}
+
+function viewPractical() {
+  const booked = DATA.experiences.filter((e) => ['booked', 'planned', 'tbc'].includes(e.status) && e.date).sort((a, b) => a.date.localeCompare(b.date));
+  return `<div class="page">
+    <section class="head plain-head">
+      <p class="eyebrow ruled">Practical</p>
+      <h1 class="title">Bookings & help</h1>
+    </section>
+    <section class="section">
+      <div class="section-head"><p class="eyebrow">Where we sleep</p></div>
+      <div class="rows">${DATA.stops.map((s) => `<a class="row" href="#/stop/${esc(s.id)}"><div class="row-body"><span class="when meta num" style="margin:0">${esc(range(s.arrive, s.depart))} · ${nights(s)} night${nights(s) === 1 ? '' : 's'}</span><p class="row-title">${esc(s.stay?.name || s.name)}</p>${s.stay ? '' : '<p class="row-sub">To be booked</p>'}</div>${ic('chevron', 'chev')}</a>`).join('')}</div>
+    </section>
+    <section class="section">
+      <div class="section-head"><p class="eyebrow">Reservations</p></div>
+      <div class="rows">${booked.map((e) => expRow(e, { showStop: true })).join('')}</div>
+    </section>
+    <section class="section">
+      <div class="section-head"><p class="eyebrow">Emergency</p></div>
+      <dl class="facts">${(DATA.emergency || []).map((c) => `<dt>${esc(c.country)}</dt><dd>${c.numbers.map((n) => `<a href="tel:${esc(n.tel)}">${esc(n.tel)}</a> <span class="meta">${esc(n.label)}</span>`).join('<br>')}</dd>`).join('')}</dl>
+    </section>
+    <section class="section" id="credits">
+      <div class="section-head"><p class="eyebrow">Photo credits</p></div>
+      <ul class="list-dash" style="font-size:15px">${Object.entries(DATA.credits || {}).map(([k, c]) => `<li>${esc(stopById(k)?.name || k)}: <a href="${esc(c.source)}" target="_blank" rel="noopener">${esc(c.author)}</a>, ${esc(c.license)}, via Wikimedia Commons</li>`).join('')}</ul>
+    </section>
+  </div>`;
+}
+
+function notFound() {
+  return { title: '', html: '<div class="page"><section class="head plain-head"><h1 class="title">Not found</h1><p class="lede"><a href="#/">Back to the journey</a></p></section></div>' };
+}
+
+/* ---------- map tab ---------- */
+
+async function viewMap(el) {
+  el.innerHTML = '<div class="mapview" id="mapview"><div class="map-title"><div class="card"><p class="eyebrow">The route</p><p class="h3">' + esc(DATA.stops.map((s) => s.name).join(' · ')) + '</p></div></div></div>';
+  const { drawMap } = await import('./map.js');
+  drawMap($('#mapview'), DATA, { kindLabel: (k) => KIND[k]?.label || k, statusLabel: (s) => STATUS[s] || s });
+}
+
+/* ---------- router ---------- */
+
+const TABS = { '': 'journey', days: 'journey', stop: 'journey', day: 'journey', exp: 'experiences', experiences: 'experiences', map: 'map', journal: 'journal', reading: 'reading', practical: 'journey' };
+
+async function render() {
+  const [path, query = ''] = location.hash.replace(/^#\/?/, '').split('?');
+  const [route, arg] = path.split('/');
+  const params = new URLSearchParams(query);
+  const view = $('#view');
+  const bar = $('#bar');
+  document.querySelectorAll('.tabs a').forEach((a) => a.classList.toggle('on', a.dataset.tab === TABS[route]));
+
+  if (route === 'map') {
+    bar.hidden = true;
+    await viewMap(view);
+    return;
+  }
+
+  let out;
+  switch (route) {
+    case '': out = viewJourney(); break;
+    case 'days': out = { title: 'Day by day', html: viewDays() }; break;
+    case 'stop': out = viewStop(arg); break;
+    case 'exp': out = viewExperience(arg); break;
+    case 'day': out = viewDay(arg); break;
+    case 'experiences': out = viewExperiences(params); break;
+    case 'journal': out = viewJournal(params); break;
+    case 'reading': out = viewReading(); break;
+    case 'practical': out = { title: 'Practical', html: viewPractical() }; break;
+    default: out = notFound();
+  }
+  const detail = typeof out === 'object';
+  view.innerHTML = detail ? out.html : out;
+  bar.hidden = !detail;
+  bar.classList.remove('solid');
+  $('#bar-title').textContent = detail ? out.title : '';
+  hydrateImages(view);
+  bind(route, params);
+
+  const anchor = location.hash.split('#')[2];
+  if (anchor) document.getElementById(anchor)?.scrollIntoView();
+  else window.scrollTo(0, 0);
+  if (route === 'stop' && params.get('k')) document.getElementById(`sec-${params.get('k')}`)?.scrollIntoView({ block: 'start' });
+}
+
+function bind(route, params) {
+  if (route === 'experiences') {
+    document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
+      location.replace(`#/experiences${b.dataset.k === 'all' ? '' : `?k=${b.dataset.k}`}`);
+    }));
+  }
+  if (route === 'journal') {
+    document.querySelectorAll('[data-who]').forEach((b) => b.addEventListener('click', () => {
+      store.set('me', b.dataset.who);
+      document.querySelectorAll('[data-who]').forEach((x) => x.setAttribute('aria-pressed', x === b));
+    }));
+    $('#composer').addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const text = $('#j-text').value.trim();
+      if (!text) return;
+      const all = store.get('journal', {});
+      const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+      all[id] = { id, day: $('#j-day').value, exp: $('#j-exp')?.value || null, author: store.get('me', DATA.trip.travellers?.[0] || ''), text, created: new Date().toISOString() };
+      store.set('journal', all);
+      toast('Added to the journal');
+      render();
+    });
+  }
+}
+
+// The back button returns where you came from, or up to the journey.
+let depth = 0;
+$('#back').addEventListener('click', (e) => {
+  if (depth > 0) { e.preventDefault(); depth -= 2; history.back(); }
+});
+window.addEventListener('hashchange', () => { depth++; render(); });
+window.addEventListener('scroll', () => {
+  const hero = $('.hero');
+  const limit = hero ? hero.offsetHeight - 60 : 40;
+  $('#bar').classList.toggle('solid', window.scrollY > limit);
+}, { passive: true });
+
+/* ---------- start ---------- */
+
+function show() {
+  $('#lock').hidden = true;
+  $('#view').hidden = false;
+  $('#tabs').hidden = false;
+  render();
+}
+
+async function unlock(pass) {
+  const box = await fetch('data/trip.enc.json', { cache: 'no-cache' }).then((r) => r.json());
+  DATA = await decryptJSON(box, pass);
+  KEY = DATA.contentKey ? await importContentKey(DATA.contentKey) : null;
+  store.set('pass', pass);
+}
+
+async function start() {
+  const local = ['localhost', '127.0.0.1'].includes(location.hostname);
+  if (local) {
+    // Local design work: read the plaintext trip from private/ (never published).
+    const plain = await fetch('private/trip.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    if (plain) { DATA = plain; DEV = true; show(); return; }
+  }
+  const saved = store.get('pass');
+  if (saved) {
+    try { await unlock(saved); show(); return; } catch { /* fall through to the lock screen */ }
+  }
+  $('#lock').hidden = false;
+  $('#lock-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('#lock-msg').textContent = '';
+    try { await unlock($('#pass').value); show(); } catch { $('#lock-msg').textContent = 'That passphrase does not open the journal.'; }
+  });
+}
+
+if ('serviceWorker' in navigator && !['localhost', '127.0.0.1'].includes(location.hostname)) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+start();

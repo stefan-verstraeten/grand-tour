@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+"""Builds the illustrated base map (map-data.js) from Natural Earth 1:10m data.
+
+    python3 tools/basemap.py <dir with land.json, borders.json, lakes.json>
+
+Download the three GeoJSON files from github.com/nvkelso/natural-earth-vector
+(geojson/ne_10m_land, ne_10m_admin_0_boundary_lines_land, ne_10m_lakes).
+The output is a set of SVG paths in a fixed frame plus the projection constants,
+so the app can place stops on it without any map library.
+"""
+import json, math, sys, os
+
+W, LON0, LON1, LAT0, LAT1 = 1000, -0.5, 15.5, 41.0, 52.0
+K = math.cos(math.radians((LAT0 + LAT1) / 2))
+SCALE = W / ((LON1 - LON0) * K)
+H = round((LAT1 - LAT0) * SCALE)
+TOL = 0.9  # simplification tolerance in output pixels
+
+
+def proj(lon, lat):
+    return ((lon - LON0) * K * SCALE, (LAT1 - lat) * SCALE)
+
+
+def clip(poly):
+    """Sutherland-Hodgman clip of a closed ring to the frame (in projected px)."""
+    def edge(pts, inside, cross):
+        out = []
+        for i, p in enumerate(pts):
+            q = pts[i - 1]
+            if inside(p):
+                if not inside(q):
+                    out.append(cross(q, p))
+                out.append(p)
+            elif inside(q):
+                out.append(cross(q, p))
+        return out
+    m = 4
+    def cx(x):
+        return lambda a, b: (x, a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]))
+    def cy(y):
+        return lambda a, b: (a[0] + (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]), y)
+    pts = poly
+    for inside, cross in [
+        (lambda p: p[0] >= -m, cx(-m)), (lambda p: p[0] <= W + m, cx(W + m)),
+        (lambda p: p[1] >= -m, cy(-m)), (lambda p: p[1] <= H + m, cy(H + m)),
+    ]:
+        if not pts:
+            break
+        pts = edge(pts, inside, cross)
+    return pts
+
+
+def dp(pts, tol):
+    if len(pts) < 3:
+        return pts
+    keep = [False] * len(pts)
+    keep[0] = keep[-1] = True
+    stack = [(0, len(pts) - 1)]
+    while stack:
+        a, b = stack.pop()
+        ax, ay = pts[a]; bx, by = pts[b]
+        dx, dy = bx - ax, by - ay
+        n = math.hypot(dx, dy) or 1e-9
+        best, bi = 0, -1
+        for i in range(a + 1, b):
+            d = abs(dy * (pts[i][0] - ax) - dx * (pts[i][1] - ay)) / n
+            if d > best:
+                best, bi = d, i
+        if best > tol:
+            keep[bi] = True
+            stack += [(a, bi), (bi, b)]
+    return [p for p, k in zip(pts, keep) if k]
+
+
+def inframe(ring):
+    xs = [p[0] for p in ring]; ys = [p[1] for p in ring]
+    return max(xs) > 0 and min(xs) < W and max(ys) > 0 and min(ys) < H
+
+
+def path(rings, closed):
+    out = []
+    for r in rings:
+        if len(r) < 2:
+            continue
+        out.append('M' + 'L'.join(f'{x:.1f},{y:.1f}' for x, y in r) + ('Z' if closed else ''))
+    return ''.join(out)
+
+
+def polygons(geo):
+    for f in geo['features']:
+        g = f['geometry']
+        polys = g['coordinates'] if g['type'] == 'MultiPolygon' else [g['coordinates']]
+        for p in polys:
+            yield f, p
+
+
+def area_ok(ring, min_px):
+    a = 0
+    for i in range(len(ring)):
+        x1, y1 = ring[i - 1]; x2, y2 = ring[i]
+        a += x1 * y2 - x2 * y1
+    return abs(a) / 2 >= min_px
+
+
+def build_polys(geo, min_area, pred=lambda f: True):
+    rings = []
+    for f, poly in polygons(geo):
+        if not pred(f):
+            continue
+        for ring in poly:
+            r = [proj(lon, lat) for lon, lat in ring]
+            if not inframe(r):
+                continue
+            r = clip(r)
+            if len(r) < 3:
+                continue
+            # A closed ring starts and ends on the same point, which Douglas-Peucker
+            # can't use as a baseline: split it at the point farthest from the start.
+            far = max(range(len(r)), key=lambda i: (r[i][0] - r[0][0]) ** 2 + (r[i][1] - r[0][1]) ** 2)
+            r = dp(r[:far + 1], TOL)[:-1] + dp(r[far:] + [r[0]], TOL)[:-1]
+            if len(r) >= 3 and area_ok(r, min_area):
+                rings.append(r)
+    return rings
+
+
+def build_lines(geo):
+    lines = []
+    for f in geo['features']:
+        g = f['geometry']
+        parts = g['coordinates'] if g['type'] == 'MultiLineString' else [g['coordinates']]
+        for part in parts:
+            seg = []
+            for lon, lat in part:
+                x, y = proj(lon, lat)
+                if -5 <= x <= W + 5 and -5 <= y <= H + 5:
+                    seg.append((x, y))
+                elif seg:
+                    lines.append(seg); seg = []
+            if seg:
+                lines.append(seg)
+    return [dp(l, TOL) for l in lines if len(l) > 1]
+
+
+src = sys.argv[1]
+load = lambda n: json.load(open(os.path.join(src, n)))
+land = build_polys(load('land.json'), 6)
+lakes = build_polys(load('lakes.json'), 30)
+borders = build_lines(load('borders.json'))
+
+root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+with open(os.path.join(root, 'map-data.js'), 'w') as fh:
+    fh.write('// Generated by tools/basemap.py from Natural Earth (public domain). Do not edit.\n')
+    fh.write(f'export const FRAME = {json.dumps(dict(w=W, h=H, lon0=LON0, lat1=LAT1, k=round(K, 6), scale=round(SCALE, 4)))};\n')
+    fh.write(f'export const LAND = {json.dumps(path(land, True))};\n')
+    fh.write(f'export const LAKES = {json.dumps(path(lakes, True))};\n')
+    fh.write(f'export const BORDERS = {json.dumps(path(borders, False))};\n')
+print(f'frame {W}x{H}: {len(land)} land rings, {len(lakes)} lakes, {len(borders)} border lines')

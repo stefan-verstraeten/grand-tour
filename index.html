@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#F3EFE6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Grand Tour">
+  <title>Grand Tour</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="preload" href="vendor/fonts/cormorant.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="vendor/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <div id="app">
+    <section id="lock" class="lock" hidden>
+      <div class="lock-inner">
+        <p class="eyebrow">A private journal</p>
+        <h1 class="display">Grand Tour</h1>
+        <p class="lede">Europe, by the old roads.</p>
+        <form id="lock-form" autocomplete="off">
+          <label for="pass" class="sr-only">Passphrase</label>
+          <input id="pass" type="password" placeholder="Passphrase" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" required>
+          <button type="submit" class="btn">Open</button>
+        </form>
+        <p id="lock-msg" class="lock-msg" role="alert"></p>
+      </div>
+    </section>
+
+    <header id="bar" class="bar" hidden>
+      <a id="back" class="bar-btn" href="#/" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></a>
+      <p id="bar-title" class="bar-title"></p>
+      <span class="bar-btn" aria-hidden="true"></span>
+    </header>
+
+    <main id="view" hidden></main>
+
+    <nav id="tabs" class="tabs" hidden>
+      <a href="#/" data-tab="journey"><svg viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v9h11v-9"/><path d="M10.5 19v-5h3v5"/></svg><span>Journey</span></a>
+      <a href="#/map" data-tab="map"><svg viewBox="0 0 24 24"><path d="M3.5 6.5 9 4.5l6 2 5.5-2v13l-5.5 2-6-2-5.5 2z"/><path d="M9 4.5v13M15 6.5v13"/></svg><span>Map</span></a>
+      <a href="#/experiences" data-tab="experiences"><svg viewBox="0 0 24 24"><path d="M4 17h16"/><path d="M5.5 17a6.5 6.5 0 0 1 13 0"/><path d="M12 10.5V9"/><path d="M10.5 8.5h3"/></svg><span>Experiences</span></a>
+      <a href="#/journal" data-tab="journal"><svg viewBox="0 0 24 24"><path d="M6 3.5h11.5v17H6a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 6 3.5z"/><path d="M8.5 3.5v17"/><path d="M11.5 8h3.5"/></svg><span>Journal</span></a>
+      <a href="#/reading" data-tab="reading"><svg viewBox="0 0 24 24"><path d="M3.5 6c3-1.2 5.8-1 8.5.8 2.7-1.8 5.5-2 8.5-.8v12.5c-3-1.2-5.8-1-8.5.8-2.7-1.8-5.5-2-8.5-.8z"/><path d="M12 6.8v12.5"/></svg><span>Reading</span></a>
+    </nav>
+  </div>
+</body>
+</html>

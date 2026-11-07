@@ -1,0 +1,5 @@
+# Plaintext trip data and photos. Only data/ (encrypted) is committed.
+private/
+node_modules/
+.DS_Store
+.venv/
