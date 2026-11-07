@@ -375,7 +375,7 @@ span.bar-btn { background: none; }
 .passage { padding: 18px 0 20px; border-top: 1px solid var(--rule); }
 .section-head + .passage { border-top: 0; padding-top: 2px; }
 .passage blockquote { margin: 0; font: 400 19px/1.5 var(--serif); color: var(--ink); position: relative; }
-.passage blockquote p { margin: 0 0 .7em; text-indent: 0; }
+.passage blockquote p { margin: 0 0 .7em; text-indent: 0; white-space: pre-line; }
 .passage blockquote p:last-child { margin-bottom: 0; }
 .passage blockquote.clipped { max-height: 13.5em; overflow: hidden; }
 .passage blockquote.clipped::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4.5em; background: linear-gradient(rgba(243,239,230,0), var(--paper)); }

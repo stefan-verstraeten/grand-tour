@@ -157,9 +157,11 @@ places), and within each by topic.
 
 ## Extracted so far
 
-16 public-domain passages are now in the app's Reading tab (and one per chapter
-page): Montaigne and Herzl in Basel, Dostoevsky on Holbein, Stendhal on the
-Emilian plain, Stevenson and Mansfield in Menton, Daudet, Petrarch (Laura and
+22 public-domain passages are now in the app's Reading tab (and one per chapter
+page): Goethe on the Luxembourg fortress, Montaigne and Herzl in Basel,
+Dostoevsky on Holbein, Dickens and Tassoni on Modena (and its stolen bucket),
+Stendhal on the Emilian plain, Stevenson, Mansfield and Maupassant in Menton,
+Smollett's note on Grasse, Daudet, Petrarch (Laura and
 Mont Ventoux) and Henry James (the Palace of the Popes, the Pont du Gard) for
 Avignon. The ★ books still under copyright appear there as pointers "to find in
 our own books", for us to transcribe from our copies.
