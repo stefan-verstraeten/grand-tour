@@ -299,6 +299,13 @@ function viewStop(id) {
       <div class="section-head"><p class="eyebrow">${KIND[k].section}</p></div>
       <div class="rows">${items.map((e) => expRow(e)).join('')}</div>
     </section>`).join('')}
+    ${(() => {
+      const p = (DATA.passages || []).find((x) => x.text && x.places?.includes(s.id));
+      return p ? `<section class="section">
+      <div class="section-head"><p class="eyebrow">On the page</p><a href="#/reading?s=${esc(s.id)}">More passages</a></div>
+      ${passageHtml(p)}
+    </section>` : '';
+    })()}
     <section class="section">
       <div class="section-head"><p class="eyebrow">Where we stay</p></div>
       ${s.stay ? `<div class="row"><div class="row-body"><p class="row-title">${esc(s.stay.name)}</p><p class="meta">${esc(s.stay.address || '')}</p></div></div>`
@@ -498,15 +505,52 @@ function viewJournal(params) {
   </div>`;
 }
 
-function viewReading() {
-  const passages = DATA.passages || [];
+// A passage: the words themselves, or (for books under copyright) a pointer to
+// where we'll find them in our own copies.
+const LONG = 520;
+function passageHtml(p, { open = false } = {}) {
+  if (!p.text) {
+    return `<article class="passage find">
+      <p class="eyebrow">${esc(p.author)} · <span class="italic">${esc(p.source)}</span></p>
+      <p class="find-note">${esc(p.find)}${p.web ? ` <a href="${esc(p.web)}" target="_blank" rel="noopener">Open</a>` : ''}</p>
+    </article>`;
+  }
+  const long = p.text.length > LONG && !open;
+  return `<article class="passage" lang="${esc(p.lang || 'en')}">
+    <blockquote class="${long ? 'clipped' : ''}">${paras(p.text)}</blockquote>
+    ${long ? '<button class="read-on" type="button" data-readon>Read on</button>' : ''}
+    <p class="cite"><span class="who">${esc(p.author)}</span> · <span class="italic">${esc(p.source)}</span>${p.where ? `<br><span class="meta">${esc(p.where)}</span>` : ''}</p>
+  </article>`;
+}
+
+function viewReading(params) {
+  const all = DATA.passages || [];
+  if (!all.length) {
+    return `<div class="page"><section class="head plain-head"><p class="eyebrow ruled">A literary companion</p><h1 class="title">Reading</h1></section>
+      <div class="empty-state">${ORNAMENT}<p class="h2">No passages yet</p></div></div>`;
+  }
+  const at = params.get('s') || 'all';
+  const stops = DATA.stops.filter((s) => all.some((p) => p.places?.includes(s.id)));
+  const shown = stops.filter((s) => at === 'all' || s.id === at);
+  const quotes = all.filter((p) => p.text).length;
   return `<div class="page">
     <section class="head plain-head">
-      <p class="eyebrow ruled">A literary companion</p>
+      <p class="eyebrow ruled">${quotes} passages</p>
       <h1 class="title">Reading</h1>
       <p class="lede">Passages for the road, gathered by place.</p>
     </section>
-    ${passages.length ? '' : `<div class="empty-state">${ORNAMENT}<p class="h2">No passages yet</p><p class="lede">Stendhal in Modena, Petrarch in Avignon, Katherine Mansfield in Menton: to be gathered before we leave.</p></div>`}
+    <div class="seg" role="group" aria-label="Chapter">${[['all', 'All'], ...stops.map((s) => [s.id, s.name])].map(([key, label]) => `<button data-s="${esc(key)}" aria-pressed="${at === key}">${esc(label)}</button>`).join('')}</div>
+    ${shown.map((s) => {
+      const here = all.filter((p) => p.places?.includes(s.id));
+      const words = here.filter((p) => p.text);
+      const finds = here.filter((p) => !p.text);
+      return `<section class="section">
+        <div class="section-head"><p class="eyebrow">${ROMAN[s.n]} · ${esc(s.name)}</p><a href="#/stop/${esc(s.id)}">Chapter</a></div>
+        ${words.map((p) => passageHtml(p)).join('')}
+        ${finds.length ? `<p class="eyebrow find-head">To find in our own books</p>${finds.map((p) => passageHtml(p)).join('')}` : ''}
+      </section>`;
+    }).join('')}
+    <footer class="footer">${ORNAMENT}<p class="meta">Passages are from public-domain editions. Books still under copyright are listed as pointers.</p></footer>
   </div>`;
 }
 
@@ -575,7 +619,7 @@ async function render() {
     case 'day': out = viewDay(arg); break;
     case 'experiences': out = viewExperiences(params); break;
     case 'journal': out = viewJournal(params); break;
-    case 'reading': out = viewReading(); break;
+    case 'reading': out = viewReading(params); break;
     case 'practical': out = { title: 'Practical', html: viewPractical() }; break;
     default: out = notFound();
   }
@@ -595,6 +639,11 @@ async function render() {
 }
 
 function bind(route, params) {
+  if (route === 'reading') {
+    document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
+      location.replace(`#/reading${b.dataset.s === 'all' ? '' : `?s=${b.dataset.s}`}`);
+    }));
+  }
   if (route === 'experiences') {
     document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
       location.replace(`#/experiences${b.dataset.k === 'all' ? '' : `?k=${b.dataset.k}`}`);
@@ -649,6 +698,8 @@ document.addEventListener('click', (ev) => {
     if (confirm('Remove this entry? It disappears on both phones.')) NOTES.remove(del.dataset.del);
     return;
   }
+  const more = ev.target.closest('[data-readon]');
+  if (more) { more.previousElementSibling.classList.remove('clipped'); more.remove(); return; }
   if (ev.target.closest('[data-sync]')) NOTES.syncNow().then(() => toast(NOTES.status().text));
 });
 

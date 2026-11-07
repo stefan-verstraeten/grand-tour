@@ -370,3 +370,23 @@ span.bar-btn { background: none; }
 .sync-error { color: var(--ochre); }
 .sync-error::before { background: var(--ochre); }
 .sync button { appearance: none; border: 0; background: none; padding: 0; cursor: pointer; font: 500 12px var(--sans); color: var(--olive-deep); }
+
+/* reading */
+.passage { padding: 18px 0 20px; border-top: 1px solid var(--rule); }
+.section-head + .passage { border-top: 0; padding-top: 2px; }
+.passage blockquote { margin: 0; font: 400 19px/1.5 var(--serif); color: var(--ink); position: relative; }
+.passage blockquote p { margin: 0 0 .7em; text-indent: 0; }
+.passage blockquote p:last-child { margin-bottom: 0; }
+.passage blockquote.clipped { max-height: 13.5em; overflow: hidden; }
+.passage blockquote.clipped::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4.5em; background: linear-gradient(rgba(243,239,230,0), var(--paper)); }
+.passage .read-on { appearance: none; border: 0; background: none; padding: 6px 0 0; cursor: pointer; font: 500 12px var(--sans); color: var(--olive-deep); }
+.passage .cite { margin: 12px 0 0; font: 400 13px/1.5 var(--sans); color: var(--ink-soft); }
+.passage .cite::before { content: '— '; color: var(--stone); }
+.passage .cite .who { font-weight: 500; color: var(--ink); }
+.passage .cite .italic { font-size: 15px; }
+.find-head { margin: 22px 0 4px; color: var(--ochre); }
+.passage.find { padding: 12px 0; }
+.passage.find .eyebrow { letter-spacing: .1em; }
+.passage.find .eyebrow .italic { text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--ink-soft); }
+.find-note { margin: 4px 0 0; font: italic 400 16px/1.4 var(--serif); color: var(--ink-soft); }
+.find-note a { font: 500 12px var(--sans); font-style: normal; color: var(--olive-deep); }
