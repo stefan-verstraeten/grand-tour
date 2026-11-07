@@ -42,7 +42,7 @@ are git-ignored. Only an encrypted copy is published:
 
 ```sh
 python3 -m venv .venv && .venv/bin/pip install cryptography   # once
-TRIP_PASSPHRASE='...' .venv/bin/python tools/vault.py encrypt  # private/ -> data/
+TRIP_PASSPHRASE="$(cat private/.passphrase)" .venv/bin/python tools/vault.py encrypt  # private/ -> data/
 TRIP_PASSPHRASE='...' .venv/bin/python tools/vault.py decrypt  # data/ -> private/
 ```
 
