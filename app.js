@@ -1,5 +1,7 @@
 import { decryptJSON, importContentKey, decryptBytes } from './crypto.js';
 import { routeMap } from './routemap.js';
+import { createNotes } from './notes.js';
+import { media, preparePhoto } from './media.js';
 
 const $ = (sel, el = document) => el.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -15,6 +17,8 @@ const store = {
 let DATA = null;
 let KEY = null;
 let DEV = false; // plaintext data from private/, only ever on a local dev server
+let NOTES = null;
+let draft = ''; // half-typed journal text survives redraws
 
 /* ---------- icons: fine line drawings in ink ---------- */
 
@@ -32,6 +36,7 @@ const ICONS = {
   pen: '<path d="M4.5 19.5h4l10-10-4-4-10 10z"/><path d="M13 7l4 4"/>',
   practical: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><path d="M12 7.8v.1"/>',
   chevron: '<path d="M9 5l7 7-7 7"/>',
+  camera: '<path d="M3.5 8.5h3.5l1.5-2.5h7l1.5 2.5h3.5v10h-17z"/><circle cx="12" cy="13" r="3.3"/>',
 };
 const ic = (name, cls = 'ki') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
 const ORNAMENT = '<svg class="ornament" viewBox="0 0 54 14" aria-hidden="true"><path d="M0 7h20M34 7h20"/><path d="M27 2.5 31.5 7 27 11.5 22.5 7z"/></svg>';
@@ -418,16 +423,40 @@ function viewExperiences(params) {
   </div>`;
 }
 
-/* ---------- journal (kept on this phone for now; shared sync comes next) ---------- */
+/* ---------- journal: notes and photos, shared between both phones (notes.js) ---------- */
 
-const journal = () => Object.values(store.get('journal', {})).filter((n) => !n.deleted).sort((a, b) => (a.day + a.created).localeCompare(b.day + b.created));
+const journal = () => (NOTES ? NOTES.list() : []).filter((n) => n.day).sort((a, b) => (a.day + a.created).localeCompare(b.day + b.created));
+const newId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+const me = () => store.get('me', DATA.trip.travellers?.[0] || '');
+
+// Photos added on a phone live in IndexedDB; the other phone downloads them once.
+const photoUrls = new Map();
+function hydratePhotos(root = document) {
+  root.querySelectorAll('img[data-ph]:not([src])').forEach(async (el) => {
+    const id = el.dataset.ph;
+    if (!photoUrls.has(id)) photoUrls.set(id, NOTES.photo(id).then((b) => (b ? URL.createObjectURL(b) : null)).catch(() => null));
+    const url = await photoUrls.get(id);
+    if (!url) { photoUrls.delete(id); el.closest('.photo')?.classList.add('empty'); return; }
+    el.onload = () => el.closest('.photo')?.classList.add('loaded');
+    el.src = url;
+  });
+}
 
 function entryHtml(n) {
   const e = n.exp && expById(n.exp);
+  const ratio = n.w && n.h ? `aspect-ratio:${n.w}/${n.h}` : 'aspect-ratio:4/3';
   return `<article class="entry">
-    <p class="by">${esc(n.author)} · ${esc(shortDate(n.day))}${e ? ` · <a href="#/exp/${esc(e.id)}">${esc(e.name)}</a>` : ''}</p>
-    <div class="prose">${paras(n.text)}</div>
+    <p class="by">${esc(n.author)} · ${esc(shortDate(n.day))}${e ? ` · <a href="#/exp/${esc(e.id)}">${esc(e.name)}</a>` : ''}
+      <button class="entry-del" data-del="${esc(n.id)}" aria-label="Remove">Remove</button></p>
+    ${n.type === 'photo' ? `<figure class="jphoto"><div class="photo" style="${ratio}"><img data-ph="${esc(n.id)}" alt=""></div>${n.caption ? `<figcaption>${esc(n.caption)}</figcaption>` : ''}</figure>` : ''}
+    ${n.text ? `<div class="prose">${paras(n.text)}</div>` : ''}
   </article>`;
+}
+
+function syncLine() {
+  if (!NOTES) return '';
+  const st = NOTES.status();
+  return `<p class="sync sync-${st.kind}"><span>${esc(st.text)}</span>${NOTES.enabled ? '<button type="button" data-sync>Sync now</button>' : ''}</p>`;
 }
 
 function viewJournal(params) {
@@ -435,7 +464,7 @@ function viewJournal(params) {
   const t = todayIso();
   const day = params.get('day') || (days.find((d) => d.date === t) || days[0]).date;
   const exp = params.get('exp') || '';
-  const who = store.get('me', DATA.trip.travellers?.[0] || '');
+  const who = me();
   const entries = journal();
   const byDay = days.map((d) => ({ d, items: entries.filter((n) => n.day === d.date) })).filter((x) => x.items.length);
   return `<div class="page">
@@ -450,9 +479,13 @@ function viewJournal(params) {
         <label class="sr-only" for="j-day">Day</label>
         <select id="j-day" class="chip" style="appearance:none;padding-right:14px">${days.map((d) => `<option value="${d.date}"${d.date === day ? ' selected' : ''}>Day ${d.n} · ${esc(shortDate(d.date))}</option>`).join('')}</select>
         ${exp ? `<input type="hidden" id="j-exp" value="${esc(exp)}"><p class="meta" style="margin-top:10px">About: ${esc(expById(exp)?.name || '')}</p>` : ''}
-        <textarea id="j-text" placeholder="What stayed with us today…" rows="4"></textarea>
-        <div class="actions" style="padding:14px 0 0"><button class="btn wide" type="submit">${ic('pen', '')}Add to the journal</button></div>
+        <textarea id="j-text" placeholder="What stayed with us today…" rows="4">${esc(draft)}</textarea>
+        <div class="actions" style="padding:14px 0 0">
+          <button class="btn wide" type="submit">${ic('pen', '')}Add to the journal</button>
+          <label class="btn ghost">${ic('camera', '')}Photos<input id="j-photos" type="file" accept="image/*" multiple hidden></label>
+        </div>
       </form>
+      ${syncLine()}
     </section>
     ${byDay.length ? byDay.map(({ d, items }) => `<section class="section">
       <div class="section-head"><p class="eyebrow">Day ${d.n} · ${esc(shortDate(d.date))}</p><a href="#/day/${d.date}">${esc(stopById(d.stop)?.name || 'Day')}</a></div>
@@ -548,6 +581,7 @@ async function render() {
   bar.classList.remove('solid');
   $('#bar-title').textContent = detail ? out.title : '';
   hydrateImages(view);
+  hydratePhotos(view);
   bind(route, params);
 
   const anchor = location.hash.split('#')[2];
@@ -567,18 +601,60 @@ function bind(route, params) {
       store.set('me', b.dataset.who);
       document.querySelectorAll('[data-who]').forEach((x) => x.setAttribute('aria-pressed', x === b));
     }));
+    $('#j-text').addEventListener('input', (ev) => { draft = ev.target.value; });
     $('#composer').addEventListener('submit', (ev) => {
       ev.preventDefault();
       const text = $('#j-text').value.trim();
       if (!text) return;
-      const all = store.get('journal', {});
-      const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-      all[id] = { id, day: $('#j-day').value, exp: $('#j-exp')?.value || null, author: store.get('me', DATA.trip.travellers?.[0] || ''), text, created: new Date().toISOString() };
-      store.set('journal', all);
+      draft = '';
+      NOTES.save({ id: newId(), type: 'note', day: $('#j-day').value, exp: $('#j-exp')?.value || null, author: me(), text });
       toast('Added to the journal');
-      render();
     });
+    $('#j-photos').addEventListener('change', (ev) => addPhotos(ev.target));
   }
+}
+
+async function addPhotos(input) {
+  const files = [...input.files];
+  if (!files.length) return;
+  const day = $('#j-day').value;
+  const exp = $('#j-exp')?.value || null;
+  const caption = $('#j-text').value.trim();
+  toast(files.length === 1 ? 'Adding the photo…' : `Adding ${files.length} photos…`);
+  let first = true;
+  for (const file of files) {
+    try {
+      const { blob, w, h } = await preparePhoto(file);
+      const id = newId();
+      await media.put(id, blob);
+      // Text typed in the box becomes the caption of the first photo.
+      NOTES.save({ id, type: 'photo', day, exp, author: me(), caption: first ? caption : '', w, h });
+      first = false;
+    } catch {
+      toast('One photo could not be read');
+    }
+  }
+  if (caption) draft = '';
+  input.value = '';
+}
+
+// Clicks that work on every page: removing an entry, syncing by hand.
+document.addEventListener('click', (ev) => {
+  const del = ev.target.closest('[data-del]');
+  if (del) {
+    if (confirm('Remove this entry? It disappears on both phones.')) NOTES.remove(del.dataset.del);
+    return;
+  }
+  if (ev.target.closest('[data-sync]')) NOTES.syncNow().then(() => toast(NOTES.status().text));
+});
+
+// Entries changed (saved here or arrived from the other phone): redraw the pages that
+// show them, keeping the scroll position and any half-typed text.
+function onNotesChange() {
+  const route = location.hash.replace(/^#\/?/, '').split(/[/?]/)[0];
+  if (!['journal', 'day', 'exp'].includes(route)) return;
+  const y = window.scrollY;
+  render().then(() => window.scrollTo(0, y));
 }
 
 // The back button returns where you came from, or up to the journey.
@@ -595,17 +671,26 @@ window.addEventListener('scroll', () => {
 
 /* ---------- start ---------- */
 
-function show() {
+async function show() {
+  KEY = DATA.contentKey ? await importContentKey(DATA.contentKey) : null;
+  // A sync token stored on this device (for testing) wins over the one in the trip data.
+  const sync = store.get('sync') || DATA.sync || null;
+  NOTES = KEY ? createNotes({ key: KEY, sync, store, onChange: onNotesChange }) : null;
   $('#lock').hidden = true;
   $('#view').hidden = false;
   $('#tabs').hidden = false;
   render();
+  if (NOTES) {
+    NOTES.syncNow();
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) NOTES.syncNow(); });
+    window.addEventListener('online', () => NOTES.syncNow());
+    setInterval(() => { if (!document.hidden) NOTES.syncNow(); }, 60000);
+  }
 }
 
 async function unlock(pass) {
   const box = await fetch('data/trip.enc.json', { cache: 'no-cache' }).then((r) => r.json());
   DATA = await decryptJSON(box, pass);
-  KEY = DATA.contentKey ? await importContentKey(DATA.contentKey) : null;
   store.set('pass', pass);
 }
 

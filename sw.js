@@ -4,7 +4,7 @@
 // Photos: cached once, kept forever.
 // Map tiles: cached once seen, so the map also works offline where you looked before.
 
-const CACHE = 'grandtour-v1';
+const CACHE = 'grandtour-v2';
 const PHOTOS = 'grandtour-photos';
 const TILES = 'grandtour-tiles';
 const MAX_TILES = 3000;
@@ -17,6 +17,8 @@ const SHELL = [
   'routemap.js',
   'map-data.js',
   'map.js',
+  'notes.js',
+  'media.js',
   'vendor/leaflet.js',
   'vendor/leaflet.css',
   'vendor/fonts/cormorant.woff2',
