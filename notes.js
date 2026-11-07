@@ -15,6 +15,7 @@ export function createNotes({ key, sync, store, onChange }) {
   const queue = new Set(store.get('notes:queue', []));
   const uploaded = new Set(store.get('notes:uploaded', []));
   let busy = null;
+  let again = false;
   let branchReady = false;
   let lastError = '';
   let timer;
@@ -167,11 +168,18 @@ export function createNotes({ key, sync, store, onChange }) {
 
   function syncNow() {
     if (!enabled || !navigator.onLine) return Promise.resolve();
-    if (busy) return busy;
+    if (busy) {
+      // Entries saved while a sync runs go up in a second round right after it.
+      again = true;
+      return busy;
+    }
     busy = (async () => {
       try {
         await ensureBranch();
-        for (const id of [...queue]) await push(id);
+        do {
+          again = false;
+          for (const id of [...queue]) await push(id);
+        } while (again && queue.size);
         await pull();
         lastError = '';
       } catch (e) {
@@ -179,6 +187,7 @@ export function createNotes({ key, sync, store, onChange }) {
       } finally {
         busy = null;
         onChange();
+        if (again && !lastError) { again = false; syncSoon(); }
       }
     })();
     return busy;
@@ -192,7 +201,7 @@ export function createNotes({ key, sync, store, onChange }) {
   function status() {
     if (!enabled) return { kind: 'local', text: 'Kept on this phone only: sharing is not set up yet.' };
     if (lastError) return { kind: 'error', text: `Not shared: ${lastError}` };
-    if (queue.size) return { kind: 'pending', text: `${queue.size} ${queue.size === 1 ? 'entry waits' : 'entries wait'} for a connection to be shared.` };
+    if (queue.size) return { kind: 'pending', text: (busy ? 'Sharing…' : navigator.onLine ? `${queue.size} ${queue.size === 1 ? 'entry' : 'entries'} still to share.` : `${queue.size} ${queue.size === 1 ? 'entry waits' : 'entries wait'} for a connection to be shared.`) };
     return { kind: 'ok', text: 'Shared with both phones.' };
   }
 

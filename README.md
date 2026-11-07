@@ -30,8 +30,7 @@ Based on the "Grand Tour" art direction: a contemporary private travel journal.
 - **Experience** (`#/exp/<id>`): a restaurant, sight or walk, with status
   (idea, planned, to confirm, booked, visited), practical facts and our impressions.
 - **Map**: a zoomable map (OpenStreetMap, toned warm) with stops and experiences.
-- **Journal**: notes by day and author. Kept on the phone for now; syncing
-  between our phones follows (same approach as the Vietnam app).
+- **Journal**: notes and photos by day and author, shared between both phones.
 - **Reading**: literary passages by place (to be gathered).
 - **Practical**: hotels, reservations, emergency numbers, photo credits.
 
@@ -49,6 +48,15 @@ TRIP_PASSPHRASE='...' .venv/bin/python tools/vault.py decrypt  # data/ -> privat
 The format (PBKDF2-SHA256 + AES-256-GCM, see `crypto.js`) is the one the app
 decrypts in the browser. Photos are encrypted with a random content key stored
 inside the trip data.
+
+## Shared journal
+
+Entries are saved on the phone first. The trip data holds a `sync` entry
+(`owner`, `repo`, `branch: journal`, `token`: a fine-grained GitHub token with
+Contents read/write on this repository only), so each entry is also stored
+encrypted as `notes/<id>.json` on the `journal` branch, and a photo's image as
+`photos/<id>.bin`. Both phones sync on opening, when back online and every minute.
+The token expires: replace it in `private/trip.json` and encrypt again.
 
 ## Tools
 
