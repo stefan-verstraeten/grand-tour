@@ -251,6 +251,7 @@ function viewJourney() {
       </a></li>`).join('')}</ol>
     </section>
 
+    ${essayLink()}
     <footer class="footer">${ORNAMENT}<p class="eyebrow"><a href="#/practical">Practical</a> &nbsp;·&nbsp; <a href="#/practical#credits">Photo credits</a></p></footer>
   </div>`;
 }
@@ -533,6 +534,27 @@ function passageHtml(p, { open = false } = {}) {
   </article>`;
 }
 
+// The essay on the winter Grand Tour: a one-time read, so only a quiet link to it.
+function essayLink() {
+  const e = DATA.essay;
+  if (!e) return '';
+  return `<a class="aside-link" href="#/essay"><span class="row-body"><span class="eyebrow">${esc(e.eyebrow || 'An essay')}</span><span class="italic">${esc(e.link || e.title)}</span></span>${ic('chevron', 'chev')}</a>`;
+}
+
+function viewEssay() {
+  const e = DATA.essay;
+  if (!e) return '<div class="page"><div class="empty-state">' + ORNAMENT + '<p class="h2">Nothing here yet</p></div></div>';
+  const body = e.text.split(/\n{2,}/).map((p) => `<p>${esc(p.trim()).replace(/\*(.+?)\*/g, '<em>$1</em>')}</p>`).join('');
+  return `<div class="page">
+    <section class="head plain-head">
+      <p class="eyebrow ruled">${esc(e.eyebrow || 'An essay')}</p>
+      <h1 class="title">${esc(e.title)}</h1>
+    </section>
+    <article class="essay prose">${body}</article>
+    <footer class="footer">${ORNAMENT}<p class="eyebrow"><a href="#/">Journey</a> &nbsp;·&nbsp; <a href="#/reading">Reading</a></p></footer>
+  </div>`;
+}
+
 function viewReading(params) {
   const all = DATA.passages || [];
   if (!all.length) {
@@ -549,6 +571,7 @@ function viewReading(params) {
       <h1 class="title">Reading</h1>
       <p class="lede">Passages for the road, gathered by place.</p>
     </section>
+    ${essayLink()}
     <div class="seg" role="group" aria-label="Chapter">${[['all', 'All'], ...stops.map((s) => [s.id, s.name])].map(([key, label]) => `<button data-s="${esc(key)}" aria-pressed="${at === key}">${esc(label)}</button>`).join('')}</div>
     ${shown.map((s) => {
       const here = all.filter((p) => p.places?.includes(s.id));
@@ -604,7 +627,7 @@ async function viewMap(el) {
 
 /* ---------- router ---------- */
 
-const TABS = { '': 'journey', days: 'journey', stop: 'journey', day: 'journey', exp: 'experiences', experiences: 'experiences', map: 'map', journal: 'journal', reading: 'reading', practical: 'journey' };
+const TABS = { '': 'journey', days: 'journey', stop: 'journey', day: 'journey', exp: 'experiences', experiences: 'experiences', map: 'map', journal: 'journal', reading: 'reading', practical: 'journey', essay: 'journey' };
 
 async function render() {
   const [path, query = ''] = location.hash.replace(/^#\/?/, '').split('?');
@@ -631,6 +654,7 @@ async function render() {
     case 'journal': out = viewJournal(params); break;
     case 'reading': out = viewReading(params); break;
     case 'practical': out = { title: 'Practical', html: viewPractical() }; break;
+    case 'essay': out = { title: 'An essay', html: viewEssay() }; break;
     default: out = notFound();
   }
   const detail = typeof out === 'object';
