@@ -380,6 +380,10 @@ span.bar-btn { background: none; }
 .passage blockquote.clipped { max-height: 13.5em; overflow: hidden; }
 .passage blockquote.clipped::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4.5em; background: linear-gradient(rgba(243,239,230,0), var(--paper)); }
 .passage .read-on { appearance: none; border: 0; background: none; padding: 6px 0 0; cursor: pointer; font: 500 12px var(--sans); color: var(--olive-deep); }
+.passage .translation { margin: 14px 0 0; padding-left: 14px; border-left: 1px solid var(--stone); }
+.passage .translation[hidden] { display: none; }
+.passage .translation .eyebrow { margin: 0 0 6px; }
+.passage .translation blockquote { font-size: 16px; font-style: italic; color: var(--ink-soft); }
 .passage .cite { margin: 12px 0 0; font: 400 13px/1.5 var(--sans); color: var(--ink-soft); }
 .passage .cite::before { content: '— '; color: var(--stone); }
 .passage .cite .who { font-weight: 500; color: var(--ink); }

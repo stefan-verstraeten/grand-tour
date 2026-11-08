@@ -527,6 +527,7 @@ function passageHtml(p, { open = false } = {}) {
   const long = p.text.length > LONG && !open;
   return `<article class="passage" lang="${esc(p.lang || 'en')}">
     <blockquote class="${long ? 'clipped' : ''}">${paras(p.text)}</blockquote>
+    ${p.translation ? `<div class="translation"${long ? ' hidden' : ''} lang="en"><p class="eyebrow">In English</p><blockquote>${paras(p.translation)}</blockquote></div>` : ''}
     ${long ? '<button class="read-on" type="button" data-readon>Read on</button>' : ''}
     <p class="cite"><span class="who">${esc(p.author)}</span> · <span class="italic">${esc(p.source)}</span>${p.where ? `<br><span class="meta">${esc(p.where)}</span>` : ''}</p>
   </article>`;
@@ -722,7 +723,13 @@ document.addEventListener('click', (ev) => {
     return;
   }
   const more = ev.target.closest('[data-readon]');
-  if (more) { more.previousElementSibling.classList.remove('clipped'); more.remove(); return; }
+  if (more) {
+    const art = more.closest('.passage');
+    art.querySelector('blockquote.clipped')?.classList.remove('clipped');
+    art.querySelector('.translation')?.removeAttribute('hidden');
+    more.remove();
+    return;
+  }
   if (ev.target.closest('[data-sync]')) NOTES.syncNow().then(() => toast(NOTES.status().text));
 });
 
