@@ -171,6 +171,10 @@ our own books", for us to transcribe from our copies.
 - **Patrick Süskind, *Het parfum*** (EPUB): five pointers by chapter for Part Three: the arrival and the Place aux Aires (ch. 35), the workshop in winter (36–37), enfleurage (37), the flower year (39), the cathedral square and the Cours (48–50).
 - **Mauro Colagreco**: the PDF supplied is *Cuisiner minceur pas à pas* (Marabout), a diet cookbook for Kitchendiet with no Menton or Mirazur content. *Mirazur* (2018) or *Under the Sign of the Moon* (2024) is still needed.
 
+- **Lawrence Durrell, *Caesar's Vast Ghost*** (EPUB): seven pointers by chapter for 9–11 December: the Pont du Gard (twice), Nîmes, Arles and the Alyscamps, a winter dinner near the Fontaine de Vaucluse, Petrarch and Laura.
+- **Christopher Hibbert, *The Grand Tour*** (PDF; printed page = PDF page − 6): six pointers (Basel, the Alpine crossing, Emilia, the Riviera before the resorts, Genoa, the Provençal hinterland), plus six **full public-domain quotations** Hibbert cites: Nugent on Basel, an 18th-century guide on the Gotthard's "bridge of hell", Walpole on the Alpine porters, Swinburne's tirade against Menton, the *Gentleman's Guide* on Aix in winter, Catherine Wilmot landing at Avignon.
+- **M. F. K. Fisher, *Two Towns in Provence*** (PDF; printed page = PDF page − 14 for *Map of Another Town*): five pointers for Aix on 8 December: arriving, the Cours Mirabeau, the Deux Garçons, the fountains, calissons. *A Considerable Town* (Marseille) skipped: not on our route.
+
 These stay pointers (a cue line of a few words, the page, a summary in our own words) because the books are under copyright.
 
 ## Still to explore
