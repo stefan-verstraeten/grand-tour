@@ -577,12 +577,23 @@ function viewReading(params) {
     <div class="seg" role="group" aria-label="Chapter">${[['all', 'All'], ...stops.map((s) => [s.id, s.name])].map(([key, label]) => `<button data-s="${esc(key)}" aria-pressed="${at === key}">${esc(label)}</button>`).join('')}</div>
     ${shown.map((s) => {
       const here = all.filter((p) => p.places?.includes(s.id));
-      const words = here.filter((p) => p.text);
-      const finds = here.filter((p) => !p.text);
+      const block = (list) => {
+        const words = list.filter((p) => p.text);
+        const finds = list.filter((p) => !p.text);
+        return `${words.map((p) => passageHtml(p)).join('')}
+          ${finds.length ? `<p class="eyebrow find-head">In our own books</p>${finds.map((p) => passageHtml(p)).join('')}` : ''}`;
+      };
+      // A chapter with many day trips is read town by town.
+      const towns = (s.towns || []).filter((t) => here.some((p) => p.town === t));
+      const rest = here.filter((p) => !towns.includes(p.town));
       return `<section class="section">
         <div class="section-head"><p class="eyebrow">${ROMAN[s.n]} · ${esc(s.name)}</p><a href="#/stop/${esc(s.id)}">Chapter</a></div>
-        ${words.map((p) => passageHtml(p)).join('')}
-        ${finds.length ? `<p class="eyebrow find-head">In our own books</p>${finds.map((p) => passageHtml(p)).join('')}` : ''}
+        ${towns.length ? `<nav class="town-index">${towns.map((t, i) => `<button type="button" data-jump="town-${esc(s.id)}-${i}">${esc(t)}</button>`).join('')}</nav>` : ''}
+        ${rest.length ? block(rest) : ''}
+        ${towns.map((t, i) => `<div class="town" id="town-${esc(s.id)}-${i}">
+          <h3 class="town-head">${esc(t)} <span class="meta num">${here.filter((p) => p.town === t).length}</span></h3>
+          ${block(here.filter((p) => p.town === t))}
+        </div>`).join('')}
       </section>`;
     }).join('')}
     <footer class="footer">${ORNAMENT}<p class="meta">Passages are from public-domain editions. Books still under copyright are listed as pointers.</p></footer>
@@ -748,6 +759,8 @@ document.addEventListener('click', (ev) => {
     sel.addEventListener('blur', () => { if (sel.value === n.day) onNotesChange(); });
     return;
   }
+  const jump = ev.target.closest('[data-jump]');
+  if (jump) { document.getElementById(jump.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
   const more = ev.target.closest('[data-readon]');
   if (more) {
     const art = more.closest('.passage');
