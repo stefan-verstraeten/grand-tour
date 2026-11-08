@@ -175,6 +175,13 @@ our own books", for us to transcribe from our copies.
 - **Christopher Hibbert, *The Grand Tour*** (PDF; printed page = PDF page − 6): six pointers (Basel, the Alpine crossing, Emilia, the Riviera before the resorts, Genoa, the Provençal hinterland), plus six **full public-domain quotations** Hibbert cites: Nugent on Basel, an 18th-century guide on the Gotthard's "bridge of hell", Walpole on the Alpine porters, Swinburne's tirade against Menton, the *Gentleman's Guide* on Aix in winter, Catherine Wilmot landing at Avignon.
 - **M. F. K. Fisher, *Two Towns in Provence*** (PDF; printed page = PDF page − 14 for *Map of Another Town*): five pointers for Aix on 8 December: arriving, the Cours Mirabeau, the Deux Garçons, the fountains, calissons. *A Considerable Town* (Marseille) skipped: not on our route.
 
+- **Kermit Lynch, *Adventures on the Wine Route*** (EPUB): five pointers: Vieux Télégraphe and the stones of Châteauneuf, Peyraud's "thirteen cépages", Gigondas in a winter mistral, leaving Provence for the northern Rhône, a frozen morning in the cellars of Savigny-lès-Beaune.
+
+### Public-domain pass (8 November 2026)
+- **Victor Hugo**, speech of thanks at Vianden, June 1871 (*Actes et paroles* III, Project Gutenberg 8454; accents restored by hand): full text for Luxembourg.
+- **Stendhal, *Mémoires d'un touriste*** (Wikisource, éd. Martineau 1929, vol. I pp. 323–332): arrival in Avignon by the Rhône steamer, two hours in the Musée Calvet, a dry aside on Vaucluse. The pages after 332 are untranscribed.
+- **Van Gogh**, first letter from Arles, 21 February 1888, in snow (Robert Harrison's translation on webexhibits.org, free to use).
+
 These stay pointers (a cue line of a few words, the page, a summary in our own words) because the books are under copyright.
 
 ## Still to explore
