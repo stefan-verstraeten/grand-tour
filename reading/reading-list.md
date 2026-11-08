@@ -182,6 +182,14 @@ our own books", for us to transcribe from our copies.
 - **Stendhal, *Mémoires d'un touriste*** (Wikisource, éd. Martineau 1929, vol. I pp. 323–332): arrival in Avignon by the Rhône steamer, two hours in the Musée Calvet, a dry aside on Vaucluse. The pages after 332 are untranscribed.
 - **Van Gogh**, first letter from Arles, 21 February 1888, in snow (Robert Harrison's translation on webexhibits.org, free to use).
 
+- **Ford Madox Ford, France and Provence** (Rodopi, 2011, PDF): an essay collection *about* Ford, not his *Provence*. Taken from it: Ford's own French text of 1934 (epigraph; Ford is public domain in Europe), the closing Provence line of *The Good Soldier* (1915), and a pointer to Julian Barnes's essay "Ford and Provence". *Provence* (1935) itself is still to find.
+
+### Public-domain pass for Basel and Italy (8 November 2026)
+- **William Hazlitt**, *Notes of a Journey through France and Italy* (1826; Gutenberg 57385): Basel at the Three Kings, the Rhine by moonlight.
+- **Henry James**, *Italian Hours*, "The Saint-Gothard" (1873; Gutenberg 6354): on the coach over the pass.
+- **Charles Dickens**, *Pictures from Italy* (1846; Gutenberg 650): Parma's cathedral piazza and Correggio's cupola; Genoa's Streets of Palaces.
+- Checked and set aside: Mary Shelley's *Six Weeks' Tour* and *Rambles* (Basel and the Gotthard only in passing), Twain's *Innocents Abroad* (Genoa; may add later).
+
 These stay pointers (a cue line of a few words, the page, a summary in our own words) because the books are under copyright.
 
 ## Still to explore
