@@ -301,6 +301,7 @@ function viewStop(id) {
       <div class="section-head"><p class="eyebrow">${KIND[k].section}</p></div>
       <div class="rows">${items.map((e) => expRow(e)).join('')}</div>
     </section>`).join('')}
+    ${walksSection(s)}
     ${(() => {
       const p = (DATA.passages || []).find((x) => x.text && x.places?.includes(s.id));
       return p ? `<section class="section">
@@ -320,6 +321,105 @@ function viewStop(id) {
     <div class="actions"><a class="btn wide" href="${esc(mapsLink(s))}" target="_blank" rel="noopener">${ic('directions', '')}Directions</a></div>
   </div>`,
   };
+}
+
+/* ---------- walks ---------- */
+
+const walksAt = (stopId) => (DATA.walks || []).filter((w) => w.stop === stopId).sort((a, b) => a.n - b.n);
+const walkById = (id) => (DATA.walks || []).find((w) => w.id === id);
+let walkMaps = null; // loaded with the first map: map.js brings Leaflet
+const walkColour = (w) => (walkMaps?.WALK_COLOURS || ['#AD7954', '#5E6052', '#292D26'])[(w.n - 1) % 4];
+const km = (w) => {
+  // Same estimate as map.js: straight lines plus a quarter, rounded to half a kilometre.
+  const r = (x) => (x * Math.PI) / 180;
+  let m = 0;
+  w.points.forEach((p, i) => {
+    if (!i || p.ride) return;
+    const a = w.points[i - 1];
+    const h = Math.sin(r(p.lat - a.lat) / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(p.lat)) * Math.sin(r(p.lon - a.lon) / 2) ** 2;
+    m += 6371000 * 2 * Math.asin(Math.sqrt(h));
+  });
+  return Math.max(0.5, Math.round((m * 1.25) / 500) / 2);
+};
+const kmText = (w) => `about ${km(w)} km`;
+
+function walksSection(s) {
+  const walks = walksAt(s.id);
+  if (!walks.length) return '';
+  const src = walks[0].source;
+  return `<section class="section walks">
+      <div class="section-head"><p class="eyebrow">On foot</p>${src ? `<span class="meta">After ${esc(src.author)}, ${esc(src.publication)}</span>` : ''}</div>
+      <div class="walkmap mini" id="walks-overview" role="img" aria-label="Map of the ${walks.length} walks"></div>
+      <div class="rows">${walks.map((w) => `<a class="row walk-row" href="#/walk/${esc(w.id)}"><span class="walk-key" style="--c:${walkColour(w)}">${ROMAN[w.n] || w.n}</span><div class="row-body"><p class="row-title">${esc(w.title)}</p><p class="row-sub">${esc(w.where)} · ${w.points.length} stops · ${kmText(w)}</p></div>${ic('chevron', 'chev')}</a>`).join('')}</div>
+    </section>`;
+}
+
+function viewWalk(id) {
+  const w = walkById(id);
+  if (!w) return notFound();
+  const s = stopById(w.stop);
+  const others = walksAt(w.stop);
+  const i = others.indexOf(w);
+  const prev = others[i - 1];
+  const next = others[i + 1];
+  const src = w.source;
+  const g = (p) => `${p.lat},${p.lon}`;
+  const legs = w.points.slice(Math.max(0, w.points.findIndex((p) => p.ride))); // on foot from where the bus stops
+  const mid = legs.slice(1, -1);
+  const pick = mid.filter((_, k) => mid.length <= 8 || k % Math.ceil(mid.length / 8) === 0).slice(0, 8);
+  const gmaps = `https://www.google.com/maps/dir/?api=1&travelmode=walking&origin=${g(legs[0])}&destination=${g(legs[legs.length - 1])}${pick.length ? `&waypoints=${pick.map(g).join('%7C')}` : ''}`;
+  return {
+    title: `Walk ${ROMAN[w.n] || w.n}`,
+    html: `<div class="page walk" style="--c:${walkColour(w)}">
+    <section class="head">
+      <p class="eyebrow ruled">${esc(s?.name || '')} · Walk ${ROMAN[w.n] || w.n} of ${others.length}</p>
+      <h1 class="title">${esc(w.title)}</h1>
+      <p class="lede">${esc(w.where)}</p>
+      <p class="meta walk-facts">${w.points.length} stops · ${kmText(w)} on foot${w.how ? ` · ${esc(w.how)}` : ''}</p>
+      <div class="prose"><p>${esc(w.intro)}</p></div>
+    </section>
+    <div class="walkmap" id="walk-map" role="img" aria-label="Map of the walk"></div>
+    <ol class="walk-stops">${w.points.map((p, k) => {
+      const e = p.exp ? expById(p.exp) : null;
+      return `<li id="walkstop-${k}" class="walk-stop${p.ride ? ' ride' : ''}">
+        <button type="button" class="walk-num" data-focus="${k}" aria-label="Show stop ${k + 1} on the map">${k + 1}</button>
+        <div class="walk-body">
+          ${p.ride ? '<p class="eyebrow">By bus</p>' : ''}
+          <p class="row-title">${esc(p.name)}</p>
+          ${p.by ? `<p class="meta">${esc(p.by)}</p>` : ''}
+          <p class="walk-note">${esc(p.note)}</p>
+          ${e ? `<a class="more" href="#/exp/${esc(e.id)}">${esc(e.name)} in our plans ${ic('chevron', 'chev')}</a>` : ''}
+        </div>
+      </li>`;
+    }).join('')}</ol>
+    <div class="actions"><a class="btn wide" href="${esc(gmaps)}" target="_blank" rel="noopener">${ic('directions', '')}Walking route in Google Maps</a></div>
+    ${src ? `<p class="source pad meta">After “<a href="${esc(src.url)}" target="_blank" rel="noopener">${esc(src.title)}</a>” by ${esc(src.author)}, ${esc(src.publication)}, ${esc(fmt(src.date, { day: 'numeric', month: 'long', year: 'numeric' }))}. Notes in our own words; positions approximate.</p>` : ''}
+    <nav class="daynav pad">${prev ? `<a href="#/walk/${esc(prev.id)}">← Walk ${ROMAN[prev.n]}</a>` : `<a href="#/stop/${esc(w.stop)}">← ${esc(s?.name || '')}</a>`}${next ? `<a href="#/walk/${esc(next.id)}">Walk ${ROMAN[next.n]} →</a>` : `<a href="#/stop/${esc(w.stop)}">${esc(s?.name || '')} →</a>`}</nav>
+  </div>`,
+  };
+}
+
+async function bindWalks(route) {
+  const el = $(route === 'walk' ? '#walk-map' : '#walks-overview');
+  if (!el) return;
+  try {
+    walkMaps = await import('./map.js');
+    if (!el.isConnected) return;
+    if (route === 'stop') {
+      const stopId = location.hash.split('/')[2]?.split('?')[0];
+      await walkMaps.drawWalksOverview(el, walksAt(stopId), { roman: (n) => ROMAN[n] || n, onPick: (id) => { location.hash = `#/walk/${id}`; } });
+    } else {
+      const w = walkById(location.hash.split('/')[2]?.split('?')[0]);
+      const m = await walkMaps.drawWalk(el, w, { colour: walkColour(w) });
+      document.querySelectorAll('[data-focus]').forEach((b) => b.addEventListener('click', () => {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        m.focus(+b.dataset.focus);
+      }));
+    }
+  } catch {
+    el.classList.add('offline');
+    el.innerHTML = '<p class="meta">The map needs a connection the first time.</p>';
+  }
 }
 
 function viewExperience(id) {
@@ -640,7 +740,7 @@ async function viewMap(el) {
 
 /* ---------- router ---------- */
 
-const TABS = { '': 'journey', days: 'journey', stop: 'journey', day: 'journey', exp: 'experiences', experiences: 'experiences', map: 'map', journal: 'journal', reading: 'reading', practical: 'journey', essay: 'journey' };
+const TABS = { '': 'journey', days: 'journey', stop: 'journey', day: 'journey', exp: 'experiences', experiences: 'experiences', map: 'map', journal: 'journal', reading: 'reading', practical: 'journey', essay: 'journey', walk: 'journey' };
 
 async function render() {
   const [path, query = ''] = location.hash.replace(/^#\/?/, '').split('?');
@@ -668,6 +768,7 @@ async function render() {
     case 'reading': out = viewReading(params); break;
     case 'practical': out = { title: 'Practical', html: viewPractical() }; break;
     case 'essay': out = { title: 'An essay', html: viewEssay() }; break;
+    case 'walk': out = viewWalk(arg); break;
     default: out = notFound();
   }
   const detail = typeof out === 'object';
@@ -686,6 +787,7 @@ async function render() {
 }
 
 function bind(route, params) {
+  if (route === 'stop' || route === 'walk') bindWalks(route);
   if (route === 'reading') {
     document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
       location.replace(`#/reading${b.dataset.s === 'all' ? '' : `?s=${b.dataset.s}`}`);
