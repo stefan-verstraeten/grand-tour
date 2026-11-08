@@ -522,7 +522,9 @@ function passageHtml(p, { open = false } = {}) {
   if (!p.text) {
     return `<article class="passage find">
       <p class="eyebrow">${esc(p.author)} · <span class="italic">${esc(p.source)}</span></p>
+      ${p.cue ? `<p class="find-cue" lang="${esc(p.lang || 'en')}">“${esc(p.cue)}${/[.!?»]$/.test(p.cue) ? '' : '…'}”</p>` : ''}
       <p class="find-note">${esc(p.find)}${p.web ? ` <a href="${esc(p.web)}" target="_blank" rel="noopener">Open</a>` : ''}</p>
+      ${p.where ? `<p class="meta find-where">${esc(p.where)}</p>` : ''}
     </article>`;
   }
   const long = p.text.length > LONG && !open;
@@ -580,7 +582,7 @@ function viewReading(params) {
       return `<section class="section">
         <div class="section-head"><p class="eyebrow">${ROMAN[s.n]} · ${esc(s.name)}</p><a href="#/stop/${esc(s.id)}">Chapter</a></div>
         ${words.map((p) => passageHtml(p)).join('')}
-        ${finds.length ? `<p class="eyebrow find-head">To find in our own books</p>${finds.map((p) => passageHtml(p)).join('')}` : ''}
+        ${finds.length ? `<p class="eyebrow find-head">In our own books</p>${finds.map((p) => passageHtml(p)).join('')}` : ''}
       </section>`;
     }).join('')}
     <footer class="footer">${ORNAMENT}<p class="meta">Passages are from public-domain editions. Books still under copyright are listed as pointers.</p></footer>

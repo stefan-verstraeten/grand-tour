@@ -166,6 +166,13 @@ Mont Ventoux) and Henry James (the Palace of the Popes, the Pont du Gard) for
 Avignon. The ★ books still under copyright appear there as pointers "to find in
 our own books", for us to transcribe from our copies.
 
+### From our own copies (8 November 2026)
+- **Jean-Claude Ellena, *Journal d'un parfumeur*** (PDF): six pointers with page numbers for Grasse, including the entry of 7 December 2009 (our Grasse day), the Chiris works in the old Capuchin convent, jasmine picking as a boy, Roudnitska at Cabris.
+- **Patrick Süskind, *Het parfum*** (EPUB): five pointers by chapter for Part Three: the arrival and the Place aux Aires (ch. 35), the workshop in winter (36–37), enfleurage (37), the flower year (39), the cathedral square and the Cours (48–50).
+- **Mauro Colagreco**: the PDF supplied is *Cuisiner minceur pas à pas* (Marabout), a diet cookbook for Kitchendiet with no Menton or Mirazur content. *Mirazur* (2018) or *Under the Sign of the Moon* (2024) is still needed.
+
+These stay pointers (a cue line of a few words, the page, a summary in our own words) because the books are under copyright.
+
 ## Still to explore
 - Dutch-language writing on Provence and the Riviera beyond Van Gogh: suggestions welcome.
 - A good recent book on the Avignon papacy (candidates to check: Unn Falkeid, *The Avignon Papacy Contested*, 2017).
