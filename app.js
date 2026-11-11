@@ -272,10 +272,13 @@ function viewDays() {
     </section>
     <section class="section"><div class="rows">${days.map((d) => {
       const stop = stopById(d.stop);
-      const head = stop && stop.id !== lastStop ? `<p class="eyebrow" style="padding:22px 0 6px;color:var(--ochre)">${ROMAN[stop.n]} · ${esc(stop.name)}</p>` : '';
-      lastStop = stop?.id || lastStop;
+      const head = stop && stop.id !== lastStop ? `<p class="eyebrow" style="padding:22px 0 6px;color:var(--ochre)">${ROMAN[stop.n]} · ${esc(stop.name)}</p>`
+        : !stop && lastStop && lastStop !== 'home' ? '<p class="eyebrow" style="padding:22px 0 6px;color:var(--ochre)">Homeward</p>' : '';
+      lastStop = stop?.id || (lastStop ? 'home' : lastStop);
       const items = (d.plan || []).map(expById).filter(Boolean);
-      const drive = (d.legs || [])[0];
+      // The whole day's driving: from the first leg's start to the last leg's end.
+      const lg = d.legs || [];
+      const drive = lg.length ? { from: lg[0].from, to: lg[lg.length - 1].to, hours: lg.every((l) => l.hours) ? lg.reduce((t, l) => t + l.hours, 0) : 0 } : null;
       return `${head}<a class="row" href="#/day/${d.date}">
         <div class="row-body">
           <span class="when meta num" style="margin:0">Day ${d.n} · ${esc(shortDate(d.date))}${d.tentative ? ' · provisional' : ''}</span>
@@ -491,7 +494,12 @@ function viewDay(date) {
       <div class="meta">${ic(e.kind)}${statusTag(e.status)}</div>
     </a></li>`);
   }
-  if (stop && d.date < stop.depart) {
+  if (d.night) {
+    items.push(`<li class="tl stay"><span class="t">Night</span><span class="dot"></span><div>
+      <p class="row-title">${esc(d.night)}</p>
+      <p class="row-sub">Hotel to be booked · on the way home</p>
+    </div></li>`);
+  } else if (stop && d.date < stop.depart) {
     items.push(`<li class="tl stay"><span class="t">Night</span><span class="dot"></span><div>
       <p class="row-title">${esc(stop.stay?.name || `${stop.name}`)}</p>
       <p class="row-sub">${stop.stay ? esc(stop.stay.address || '') : 'Hotel to be booked'}</p>
@@ -540,7 +548,7 @@ function viewExperiences(params) {
     }).join('') || '<div class="empty-state"><p class="lede">Nothing here yet.</p></div>'}
     ${(() => {
       const home = list.filter((e) => !e.stop);
-      return home.length ? `<section class="section"><div class="section-head"><p class="eyebrow">On the way home</p><span class="meta num">${esc(dayMonth(DATA.trip.end))}</span></div>
+      return home.length ? `<section class="section"><div class="section-head"><p class="eyebrow">On the road</p></div>
         <div class="rows">${home.map((e) => expRow(e)).join('')}</div></section>` : '';
     })()}
   </div>`;
