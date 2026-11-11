@@ -172,12 +172,17 @@ function expRow(e, { showStop = false, showDate = true } = {}) {
 
 /* ---------- views ---------- */
 
+let coverPick = null;
 function viewJourney() {
   const t = DATA.trip;
   const phase = tripPhase();
   const now = currentStop();
   const stops = DATA.stops;
-  const cover = (now && now.img) || t.cover || stops[0]?.img;
+  // During the trip, the chapter we are in; otherwise a photo drawn from all the chapters,
+  // once each time the app opens, so it stays put while we browse.
+  const pool = stops.map((s) => s.img).filter(Boolean);
+  if (!coverPick || !pool.includes(coverPick)) coverPick = pool[Math.floor(Math.random() * pool.length)] || t.cover;
+  const cover = (now && now.img) || coverPick;
   const [first, last] = [stops[0], stops[stops.length - 1]];
 
   let status = '';
