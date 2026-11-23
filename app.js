@@ -784,6 +784,12 @@ function viewPractical() {
       <div class="section-head"><p class="eyebrow">Reservations</p></div>
       <div class="rows">${booked.map((e) => expRow(e, { showStop: true })).join('')}</div>
     </section>
+    ${(DATA.road || []).map((r) => `<section class="section">
+      <div class="section-head"><p class="eyebrow">On the road</p></div>
+      <p class="row-title" style="margin:0 0 10px">${esc(r.title)}</p>
+      <dl class="facts">${(r.facts || []).map(([k, v]) => `<dt>${esc(k)}</dt><dd${k === 'Reference' ? ' class="num"' : ''}>${esc(v)}</dd>`).join('')}</dl>
+      ${r.note ? `<p class="meta" style="margin-top:10px">${esc(r.note)}</p>` : ''}
+    </section>`).join('')}
     <section class="section">
       <div class="section-head"><p class="eyebrow">Emergency</p></div>
       <dl class="facts">${(DATA.emergency || []).map((c) => `<dt>${esc(c.country)}</dt><dd>${c.numbers.map((n) => `<a href="tel:${esc(n.tel)}">${esc(n.tel)}</a> <span class="meta">${esc(n.label)}</span>`).join('<br>')}</dd>`).join('')}</dl>
