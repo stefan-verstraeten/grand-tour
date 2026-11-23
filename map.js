@@ -145,3 +145,23 @@ export async function drawWalk(el, w, { colour }) {
     },
   };
 }
+
+// One place on a small still map, with the sights of that chapter nearby to situate it.
+export async function drawPlace(el, place, nearby = []) {
+  await loadLeaflet();
+  const L = window.L;
+  const map = baseMap(el, { still: true });
+  for (const n of nearby) {
+    L.circleMarker([n.lat, n.lon], { radius: 3.4, color: '#4E5149', weight: 1, fillColor: '#F3EFE6', fillOpacity: 1, interactive: false })
+      .addTo(map).bindTooltip(esc(n.name), { permanent: true, direction: 'right', className: 'near-label', offset: [5, 0] });
+  }
+  L.marker([place.lat, place.lon], {
+    icon: L.divIcon({ className: '', html: '<div class="pin stop"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }),
+    zIndexOffset: 1000, keyboard: false, interactive: false,
+  }).addTo(map).bindTooltip(esc(place.name), { permanent: true, direction: 'top', className: 'stop-label', offset: [0, -8] });
+  // Keep the hotel in the middle: fit the sights and their mirror images around it.
+  const pts = [[place.lat, place.lon], ...nearby.flatMap((n) => [[n.lat, n.lon], [2 * place.lat - n.lat, 2 * place.lon - n.lon]])];
+  if (pts.length > 1) map.fitBounds(L.latLngBounds(pts), { padding: [30, 70], maxZoom: 16 });
+  else map.setView(pts[0], 15.5);
+  return map;
+}

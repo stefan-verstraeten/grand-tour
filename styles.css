@@ -464,3 +464,15 @@ span.bar-btn { background: none; }
 .walk .source { margin: 18px 0 0; font-size: 12px; }
 .walk .source a { border-bottom: 1px solid var(--stone); color: inherit; }
 .leaflet-popup-content button.more { appearance: none; border: 0; background: none; padding: 0; margin-top: 8px; font: 500 13px var(--sans); color: var(--olive-deep); cursor: pointer; }
+
+/* ---------- where we stay ---------- */
+
+.stay .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-top: 22px; }
+.stay .gallery-photo { aspect-ratio: 4 / 3; border-radius: 3px; }
+.stay .gallery-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.stay .gallery-photo .credit { font-size: 8.5px; }
+.stay .walkmap.mini { height: 250px; }
+.stay .actions { display: grid; gap: 10px; }
+.leaflet-tooltip.near-label { font: italic 400 13.5px var(--serif); color: var(--ink-soft); background: none; border: 0; box-shadow: none; padding: 0; white-space: nowrap; text-shadow: 0 0 3px var(--paper), 0 0 3px var(--paper), 0 0 3px var(--paper); }
+.leaflet-tooltip.near-label::before { display: none; }
+a.tl-link, .tl.stay a { color: inherit; display: block; }

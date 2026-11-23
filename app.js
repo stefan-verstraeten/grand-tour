@@ -319,7 +319,7 @@ function viewStop(id) {
     })()}
     <section class="section">
       <div class="section-head"><p class="eyebrow">Where we stay</p></div>
-      ${s.stay ? `<div class="row"><div class="row-body"><p class="row-title">${esc(s.stay.name)}</p><p class="meta">${esc(s.stay.address || '')}</p></div></div>`
+      ${s.stay ? `<a class="row" href="#/stay/${esc(s.id)}"><div class="row-body"><p class="row-title">${esc(s.stay.name)}</p><p class="meta">${esc(s.stay.address || '')}</p></div>${ic('chevron', 'chev')}</a>`
         : `<p class="tbd">To be booked · ${nights(s)} night${nights(s) === 1 ? '' : 's'}</p>`}
     </section>
     <section class="section">
@@ -430,6 +430,61 @@ async function bindWalks(route) {
   }
 }
 
+/* ---------- where we stay ---------- */
+
+function viewStay(id) {
+  const s = stopById(id);
+  const h = s?.stay;
+  if (!h) return notFound();
+  const pics = h.photos || [];
+  const facts = [];
+  if (h.address) facts.push(['Address', `<a href="${esc(mapsLink(h))}" target="_blank" rel="noopener">${esc(h.address)}</a>`]);
+  if (h.phone) facts.push(['Phone', `<a href="tel:${esc(h.phone.replace(/\s/g, ''))}">${esc(h.phone)}</a>`]);
+  facts.push(['Nights', `<span class="num">${esc(range(s.arrive, s.depart))} · ${nights(s)} night${nights(s) === 1 ? '' : 's'}</span>`]);
+  for (const [k, v] of h.facts || []) facts.push([esc(k), esc(v)]);
+  return {
+    title: h.name,
+    html: `<div class="page stay">
+    ${photo(pics[0], 'hero', { credit: true })}
+    <section class="head">
+      <p class="eyebrow ruled">Where we stay · ${esc(s.name)}</p>
+      <h1 class="title">${esc(h.name)}</h1>
+      ${h.tagline ? `<p class="lede">${esc(h.tagline)}</p>` : ''}
+      ${h.about ? `<div class="prose">${paras(h.about)}</div>` : ''}
+    </section>
+    ${pics.length > 1 ? `<div class="gallery pad">${pics.slice(1).map((p) => photo(p, 'gallery-photo', { credit: true })).join('')}</div>` : ''}
+    <section class="section"><dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></section>
+    ${h.lat ? `<section class="section">
+      <div class="section-head"><p class="eyebrow">Where it is</p></div>
+      <div class="walkmap mini" id="stay-map" role="img" aria-label="Map around ${esc(h.name)}"></div>
+    </section>` : ''}
+    <div class="actions">
+      ${h.phone ? `<a class="btn wide ghost" href="tel:${esc(h.phone.replace(/\s/g, ''))}">${ic('phone', '')}Call the hotel</a>` : ''}
+      <a class="btn wide" href="${esc(mapsLink(h))}" target="_blank" rel="noopener">${ic('directions', '')}Directions</a>
+    </div>
+    <nav class="daynav pad"><a href="#/stop/${esc(s.id)}">← ${esc(s.name)}</a><span></span></nav>
+  </div>`,
+  };
+}
+
+async function bindStay() {
+  const el = $('#stay-map');
+  if (!el) return;
+  const s = stopById(location.hash.split('/')[2]?.split('?')[0]);
+  const h = s.stay;
+  // The chapter's sights within an easy walk, to place the hotel.
+  const r = (x) => (x * Math.PI) / 180;
+  const dist = (e) => 6371 * Math.acos(Math.min(1, Math.sin(r(h.lat)) * Math.sin(r(e.lat)) + Math.cos(r(h.lat)) * Math.cos(r(e.lat)) * Math.cos(r(e.lon - h.lon))));
+  const near = DATA.experiences.filter((e) => e.lat && e.stop === s.id && dist(e) < 1.2).map((e) => ({ name: e.name.split(/,| and | by /)[0], lat: e.lat, lon: e.lon }));
+  try {
+    const { drawPlace } = await import('./map.js');
+    if (el.isConnected) await drawPlace(el, { name: h.name, lat: h.lat, lon: h.lon }, near);
+  } catch {
+    el.classList.add('offline');
+    el.innerHTML = '<p class="meta">The map needs a connection the first time.</p>';
+  }
+}
+
 function viewExperience(id) {
   const e = expById(id);
   if (!e) return notFound();
@@ -500,10 +555,11 @@ function viewDay(date) {
       <p class="row-sub">Hotel to be booked · on the way home</p>
     </div></li>`);
   } else if (stop && d.date < stop.depart) {
-    items.push(`<li class="tl stay"><span class="t">Night</span><span class="dot"></span><div>
+    const tag = stop.stay ? `a href="#/stay/${esc(stop.id)}"` : 'div';
+    items.push(`<li class="tl stay"><span class="t">Night</span><span class="dot"></span><${tag}>
       <p class="row-title">${esc(stop.stay?.name || `${stop.name}`)}</p>
       <p class="row-sub">${stop.stay ? esc(stop.stay.address || '') : 'Hotel to be booked'}</p>
-    </div></li>`);
+    </${stop.stay ? 'a' : 'div'}></li>`);
   }
   const notes = journal().filter((n) => n.day === d.date);
   return {
@@ -722,7 +778,7 @@ function viewPractical() {
     </section>
     <section class="section">
       <div class="section-head"><p class="eyebrow">Where we sleep</p></div>
-      <div class="rows">${DATA.stops.map((s) => `<a class="row" href="#/stop/${esc(s.id)}"><div class="row-body"><span class="when meta num" style="margin:0">${esc(range(s.arrive, s.depart))} · ${nights(s)} night${nights(s) === 1 ? '' : 's'}</span><p class="row-title">${esc(s.stay?.name || s.name)}</p>${s.stay ? '' : '<p class="row-sub">To be booked</p>'}</div>${ic('chevron', 'chev')}</a>`).join('')}</div>
+      <div class="rows">${DATA.stops.map((s) => `<a class="row" href="#/${s.stay ? 'stay' : 'stop'}/${esc(s.id)}"><div class="row-body"><span class="when meta num" style="margin:0">${esc(range(s.arrive, s.depart))} · ${nights(s)} night${nights(s) === 1 ? '' : 's'}</span><p class="row-title">${esc(s.stay?.name || s.name)}</p>${s.stay ? '' : '<p class="row-sub">To be booked</p>'}</div>${ic('chevron', 'chev')}</a>`).join('')}</div>
     </section>
     <section class="section">
       <div class="section-head"><p class="eyebrow">Reservations</p></div>
@@ -734,7 +790,7 @@ function viewPractical() {
     </section>
     <section class="section" id="credits">
       <div class="section-head"><p class="eyebrow">Photo credits</p></div>
-      <ul class="list-dash" style="font-size:15px">${Object.entries(DATA.credits || {}).map(([k, c]) => `<li>${esc(stopById(k)?.name || k)}: <a href="${esc(c.source)}" target="_blank" rel="noopener">${esc(c.author)}</a>, ${esc(c.license)}, via Wikimedia Commons</li>`).join('')}</ul>
+      <ul class="list-dash" style="font-size:15px">${Object.entries(DATA.credits || {}).map(([k, c]) => `<li>${esc(c.label || stopById(k)?.name || k)}: <a href="${esc(c.source)}" target="_blank" rel="noopener">${esc(c.author)}</a>, ${esc(c.license)}, via Wikimedia Commons</li>`).join('')}</ul>
     </section>
   </div>`;
 }
@@ -753,7 +809,7 @@ async function viewMap(el) {
 
 /* ---------- router ---------- */
 
-const TABS = { '': 'journey', days: 'journey', stop: 'journey', day: 'journey', exp: 'experiences', experiences: 'experiences', map: 'map', journal: 'journal', reading: 'reading', practical: 'journey', essay: 'journey', walk: 'journey' };
+const TABS = { '': 'journey', days: 'journey', stop: 'journey', day: 'journey', exp: 'experiences', experiences: 'experiences', map: 'map', journal: 'journal', reading: 'reading', practical: 'journey', essay: 'journey', walk: 'journey', stay: 'journey' };
 
 async function render() {
   const [path, query = ''] = location.hash.replace(/^#\/?/, '').split('?');
@@ -782,6 +838,7 @@ async function render() {
     case 'practical': out = { title: 'Practical', html: viewPractical() }; break;
     case 'essay': out = { title: 'An essay', html: viewEssay() }; break;
     case 'walk': out = viewWalk(arg); break;
+    case 'stay': out = viewStay(arg); break;
     default: out = notFound();
   }
   const detail = typeof out === 'object';
@@ -801,6 +858,7 @@ async function render() {
 
 function bind(route, params) {
   if (route === 'stop' || route === 'walk') bindWalks(route);
+  if (route === 'stay') bindStay();
   if (route === 'reading') {
     document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
       location.replace(`#/reading${b.dataset.s === 'all' ? '' : `?s=${b.dataset.s}`}`);
