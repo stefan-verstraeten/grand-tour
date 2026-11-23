@@ -58,7 +58,7 @@ export async function drawMap(el, data, { kindLabel, statusLabel }) {
       zIndexOffset: 1000,
     }).addTo(map)
       .bindTooltip(esc(s.name), { permanent: true, direction: s.label === 'l' ? 'left' : 'right', className: 'stop-label', offset: [s.label === 'l' ? -8 : 8, 0] })
-      .bindPopup(`<p class="eyebrow">Chapter ${s.n}</p><p class="row-title">${esc(s.name)}</p><p class="row-sub">${esc(s.tagline)}</p><a class="more" href="#/stop/${esc(s.id)}">Open chapter</a>`);
+      .bindPopup(`<p class="eyebrow">Stop ${s.n}</p><p class="row-title">${esc(s.name)}</p><p class="row-sub">${esc(s.tagline)}</p><a class="more" href="#/stop/${esc(s.id)}">Open stop</a>`);
   }
 
   for (const e of data.experiences.filter((x) => x.lat)) {

@@ -215,7 +215,7 @@ function viewJourney() {
       </div>
       <div>
         <p class="h3">${esc(first?.name)} to ${esc(last?.name)}</p>
-        <p class="italic">${stops.length} chapters · tables, art &amp; landscape</p>
+        <p class="italic">${stops.length} stops · tables, art &amp; landscape</p>
       </div>
       ${ic('chevron', 'chev')}
     </a>
@@ -226,7 +226,7 @@ function viewJourney() {
     <p class="status-line"><span class="eyebrow">${phase.phase === 'during' ? 'Today' : 'Departure'}</span><span class="meta">${status}</span></p>
 
     ${upcoming ? `<section class="section">
-      <div class="section-head"><p class="eyebrow">${phase.phase === 'during' ? 'Up next' : 'First chapter'}</p></div>
+      <div class="section-head"><p class="eyebrow">${phase.phase === 'during' ? 'Up next' : 'First stop'}</p></div>
       <a class="next" href="#/stop/${esc(upcoming.id)}">
         ${photo(upcoming.img)}
         <div class="row-body">
@@ -244,7 +244,7 @@ function viewJourney() {
     </section>` : ''}
 
     <section class="section">
-      <div class="section-head"><p class="eyebrow">The chapters</p><a href="#/days">Day by day</a></div>
+      <div class="section-head"><p class="eyebrow">The stops</p><a href="#/days">Day by day</a></div>
       <ol class="rows">${stops.map((s) => `<li><a class="chapter${s.tentative ? ' tentative' : ''}" href="#/stop/${esc(s.id)}">
         <span class="numeral">${ROMAN[s.n] || s.n}</span>
         <span class="row-body">
@@ -299,7 +299,7 @@ function viewStop(id) {
     html: `<div class="page">
     ${photo(s.img, 'hero', { credit: true })}
     <section class="head">
-      <p class="eyebrow ruled">Chapter ${ROMAN[s.n] || s.n} · ${esc(range(s.arrive, s.depart))}${s.tentative ? ' · provisional' : ''}</p>
+      <p class="eyebrow ruled">Stop ${ROMAN[s.n] || s.n} · ${esc(range(s.arrive, s.depart))}${s.tentative ? ' · provisional' : ''}</p>
       <h1 class="title">${esc(s.name)}</h1>
       <p class="lede">${esc(s.tagline)}</p>
       <div class="prose">${paras(s.intro)}</div>
@@ -568,7 +568,7 @@ function viewDay(date) {
     <section class="head plain-head">
       <p class="eyebrow ruled">Day ${d.n} · ${esc(longDate(d.date))}</p>
       <h1 class="title">${esc(d.title)}</h1>
-      ${stop ? `<p class="lede"><a href="#/stop/${esc(stop.id)}">Chapter ${ROMAN[stop.n]} · ${esc(stop.name)}</a>${d.tentative ? ' · provisional' : ''}</p>` : ''}
+      ${stop ? `<p class="lede"><a href="#/stop/${esc(stop.id)}">Stop ${ROMAN[stop.n]} · ${esc(stop.name)}</a>${d.tentative ? ' · provisional' : ''}</p>` : ''}
     </section>
     <nav class="daynav">
       <a class="${prev ? '' : 'off'}" href="#/day/${prev?.date || ''}">‹ ${prev ? esc(shortDate(prev.date)) : ''}</a>
@@ -743,7 +743,7 @@ function viewReading(params) {
       <p class="lede">Passages for the road, gathered by place.</p>
     </section>
     ${essayLink()}
-    <div class="seg" role="group" aria-label="Chapter">${[['all', 'All'], ...stops.map((s) => [s.id, s.name])].map(([key, label]) => `<button data-s="${esc(key)}" aria-pressed="${at === key}">${esc(label)}</button>`).join('')}</div>
+    <div class="seg" role="group" aria-label="Stop">${[['all', 'All'], ...stops.map((s) => [s.id, s.name])].map(([key, label]) => `<button data-s="${esc(key)}" aria-pressed="${at === key}">${esc(label)}</button>`).join('')}</div>
     ${shown.map((s) => {
       const here = all.filter((p) => p.places?.includes(s.id));
       const block = (list) => {
@@ -756,7 +756,7 @@ function viewReading(params) {
       const towns = (s.towns || []).filter((t) => here.some((p) => p.town === t));
       const rest = here.filter((p) => !towns.includes(p.town));
       return `<section class="section">
-        <div class="section-head"><p class="eyebrow">${ROMAN[s.n]} · ${esc(s.name)}</p><a href="#/stop/${esc(s.id)}">Chapter</a></div>
+        <div class="section-head"><p class="eyebrow">${ROMAN[s.n]} · ${esc(s.name)}</p><a href="#/stop/${esc(s.id)}">Stop</a></div>
         ${towns.length ? `<nav class="town-index">${towns.map((t, i) => `<button type="button" data-jump="town-${esc(s.id)}-${i}">${esc(t)}</button>`).join('')}</nav>` : ''}
         ${rest.length ? block(rest) : ''}
         ${towns.map((t, i) => `<div class="town" id="town-${esc(s.id)}-${i}">
