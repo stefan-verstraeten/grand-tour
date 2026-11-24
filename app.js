@@ -594,7 +594,7 @@ function viewDay(date) {
   for (const id of d.plan || []) {
     const e = expById(id);
     if (!e) continue;
-    items.push(`<li class="tl ${esc(e.kind)}"><span class="t">${esc(e.time || (e.meal ? e.meal.slice(0, 5) : ''))}</span><span class="dot"></span><a href="#/exp/${esc(e.id)}">
+    items.push(`<li class="tl ${esc(e.kind)}"><span class="t">${esc(e.time || e.meal || '')}</span><span class="dot"></span><a href="#/exp/${esc(e.id)}">
       <p class="row-title">${esc(e.name)}</p>
       ${e.tagline ? `<p class="row-sub">${esc(e.tagline)}</p>` : ''}
       <div class="meta">${ic(e.kind)}${statusTag(e.status)}</div>
