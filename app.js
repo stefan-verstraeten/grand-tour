@@ -310,6 +310,8 @@ function viewStop(id) {
       <div class="rows">${items.map((e) => expRow(e)).join('')}</div>
     </section>`).join('')}
     ${walksSection(s)}
+    ${pastSection(s)}
+    ${peopleSection(s)}
     ${(() => {
       const p = (DATA.passages || []).find((x) => x.text && x.places?.includes(s.id));
       return p ? `<section class="section">
@@ -327,6 +329,55 @@ function viewStop(id) {
       <div class="rows">${days.map((d) => `<a class="row" href="#/day/${d.date}"><div class="row-body"><span class="when meta num" style="margin:0">Day ${d.n} · ${esc(shortDate(d.date))}</span><p class="row-title">${esc(d.title)}</p></div>${ic('chevron', 'chev')}</a>`).join('')}</div>
     </section>
     <div class="actions"><a class="btn wide" href="${esc(mapsLink(s))}" target="_blank" rel="noopener">${ic('directions', '')}Directions</a></div>
+  </div>`,
+  };
+}
+
+/* ---------- the past, and its people ---------- */
+
+function pastSection(s) {
+  const h = s.history;
+  if (!h) return '';
+  return `<section class="section" id="sec-past">
+      <div class="section-head"><p class="eyebrow">The past</p>${h.dates?.length ? `<a href="#/history/${esc(s.id)}">${h.dates.length} dates</a>` : ''}</div>
+      <a class="row" href="#/history/${esc(s.id)}"><div class="row-body"><p class="row-title">A short history of ${esc(s.name)}</p><p class="row-sub">${esc(h.lede)}</p></div>${ic('chevron', 'chev')}</a>
+    </section>`;
+}
+
+function peopleSection(s) {
+  if (!s.people?.length) return '';
+  return `<section class="section" id="sec-people">
+      <div class="section-head"><p class="eyebrow">People of ${esc(s.name)}</p></div>
+      <div class="rows">${s.people.map((x) => `<div class="row person"><div class="row-body">
+        <p class="row-title">${esc(x.name)}</p>
+        <p class="meta"><span class="num">${esc(x.years || '')}</span>${x.role ? `<span>${esc(x.role)}</span>` : ''}</p>
+        ${x.note ? `<p class="row-sub">${esc(x.note)}</p>` : ''}
+      </div></div>`).join('')}</div>
+    </section>`;
+}
+
+function viewHistory(id) {
+  const s = stopById(id);
+  if (!s?.history) return notFound();
+  const h = s.history;
+  return {
+    title: s.name,
+    html: `<div class="page">
+    ${photo(s.img, 'hero', { credit: true })}
+    <section class="head">
+      <p class="eyebrow ruled"><a href="#/stop/${esc(s.id)}">Stop ${ROMAN[s.n] || s.n} · ${esc(s.name)}</a></p>
+      <h1 class="title">A short history</h1>
+      <p class="lede">${esc(h.lede)}</p>
+      <div class="prose">${paras(h.text)}</div>
+    </section>
+    ${h.dates?.length ? `<section class="section">
+      <div class="section-head"><p class="eyebrow">Dates</p></div>
+      <dl class="facts dates">${h.dates.map(([y, e]) => `<dt class="num">${esc(y)}</dt><dd>${esc(e)}</dd>`).join('')}</dl>
+    </section>` : ''}
+    ${s.people?.length ? `<section class="section">
+      <div class="section-head"><p class="eyebrow">People</p></div>
+      <a class="row" href="#/stop/${esc(s.id)}?k=people"><div class="row-body"><p class="row-title">People of ${esc(s.name)}</p><p class="row-sub">${esc(s.people.slice(0, 3).map((x) => x.name).join(', '))} and others</p></div>${ic('chevron', 'chev')}</a>
+    </section>` : ''}
   </div>`,
   };
 }
@@ -815,7 +866,7 @@ async function viewMap(el) {
 
 /* ---------- router ---------- */
 
-const TABS = { '': 'journey', days: 'journey', stop: 'journey', day: 'journey', exp: 'experiences', experiences: 'experiences', map: 'map', journal: 'journal', reading: 'reading', practical: 'journey', essay: 'journey', walk: 'journey', stay: 'journey' };
+const TABS = { '': 'journey', days: 'journey', stop: 'journey', day: 'journey', exp: 'experiences', experiences: 'experiences', map: 'map', journal: 'journal', reading: 'reading', practical: 'journey', essay: 'journey', walk: 'journey', stay: 'journey', history: 'journey' };
 
 async function render() {
   const [path, query = ''] = location.hash.replace(/^#\/?/, '').split('?');
@@ -845,6 +896,7 @@ async function render() {
     case 'essay': out = { title: 'An essay', html: viewEssay() }; break;
     case 'walk': out = viewWalk(arg); break;
     case 'stay': out = viewStay(arg); break;
+    case 'history': out = viewHistory(arg); break;
     default: out = notFound();
   }
   const detail = typeof out === 'object';

@@ -476,3 +476,11 @@ span.bar-btn { background: none; }
 .leaflet-tooltip.near-label { font: italic 400 13.5px var(--serif); color: var(--ink-soft); background: none; border: 0; box-shadow: none; padding: 0; white-space: nowrap; text-shadow: 0 0 3px var(--paper), 0 0 3px var(--paper), 0 0 3px var(--paper); }
 .leaflet-tooltip.near-label::before { display: none; }
 a.tl-link, .tl.stay a { color: inherit; display: block; }
+
+/* The past, and its people */
+.person .meta { margin-top: 3px; }
+.person .meta span + span::before { content: '·'; margin-right: 12px; color: var(--rule-strong, var(--muted)); }
+.person .row-sub { margin-top: 6px; font-size: 16px; line-height: 1.4; }
+.facts.dates { grid-template-columns: 78px 1fr; }
+.facts.dates dt { letter-spacing: .04em; text-transform: none; font: 500 13px/1.6 var(--sans); color: var(--ochre); }
+.head .eyebrow a { color: inherit; }
