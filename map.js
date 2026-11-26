@@ -33,7 +33,7 @@ export async function drawMap(el, data, { kindLabel, statusLabel }) {
   }).addTo(map);
 
   const stops = data.stops;
-  const line = stops.map((s) => [s.lat, s.lon]);
+  const line = stops.filter((s) => !s.daytrip).map((s) => [s.lat, s.lon]);
   L.polyline(line, { color: '#292D26', weight: 1.6, opacity: 0.75, dashArray: '2 6', lineCap: 'round' }).addTo(map);
 
   // Home: where the journey starts and ends.
@@ -54,11 +54,11 @@ export async function drawMap(el, data, { kindLabel, statusLabel }) {
 
   for (const s of stops) {
     L.marker([s.lat, s.lon], {
-      icon: L.divIcon({ className: '', html: '<div class="pin stop"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }),
+      icon: L.divIcon({ className: '', html: `<div class="pin stop${s.daytrip ? ' trip' : ''}"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] }),
       zIndexOffset: 1000,
     }).addTo(map)
       .bindTooltip(esc(s.name), { permanent: true, direction: s.label === 'l' ? 'left' : 'right', className: 'stop-label', offset: [s.label === 'l' ? -8 : 8, 0] })
-      .bindPopup(`<p class="eyebrow">Stop ${s.n}</p><p class="row-title">${esc(s.name)}</p><p class="row-sub">${esc(s.tagline)}</p><a class="more" href="#/stop/${esc(s.id)}">Open stop</a>`);
+      .bindPopup(`<p class="eyebrow">${s.daytrip ? 'Day trip' : `Stop ${s.n}`}</p><p class="row-title">${esc(s.name)}</p><p class="row-sub">${esc(s.tagline)}</p><a class="more" href="#/stop/${esc(s.id)}">${s.daytrip ? 'Open' : 'Open stop'}</a>`);
   }
 
   for (const e of data.experiences.filter((x) => x.lat)) {

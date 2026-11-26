@@ -91,6 +91,12 @@ function tripPhase() {
 }
 
 const stopById = (id) => DATA.stops.find((s) => s.id === id);
+// Day trips (a place we visit from a stop, without sleeping there) live among the stops,
+// with `daytrip` naming the stop they're made from; they have no number and no nights.
+const nightStops = () => DATA.stops.filter((s) => !s.daytrip);
+const tripsFrom = (id) => DATA.stops.filter((s) => s.daytrip === id);
+const stopNum = (s) => (s.daytrip ? 'Day trip' : ROMAN[s.n] || s.n);
+const stopTag = (s) => (s.daytrip ? 'Day trip' : `Stop ${ROMAN[s.n] || s.n}`);
 const expById = (id) => DATA.experiences.find((e) => e.id === id);
 const expsAt = (stopId, kind) => DATA.experiences.filter((e) => e.stop === stopId && (!kind || e.kind === kind));
 const currentStop = () => {
@@ -177,7 +183,7 @@ function viewJourney() {
   const t = DATA.trip;
   const phase = tripPhase();
   const now = currentStop();
-  const stops = DATA.stops;
+  const stops = nightStops();
   // During the trip, the chapter we are in; otherwise a photo drawn from all the chapters,
   // once each time the app opens, so it stays put while we browse.
   const pool = stops.map((s) => s.img).filter(Boolean);
@@ -245,10 +251,10 @@ function viewJourney() {
 
     <section class="section">
       <div class="section-head"><p class="eyebrow">The stops</p><a href="#/days">Day by day</a></div>
-      <ol class="rows">${stops.map((s) => `<li><a class="chapter${s.tentative ? ' tentative' : ''}" href="#/stop/${esc(s.id)}">
-        <span class="numeral">${ROMAN[s.n] || s.n}</span>
+      <ol class="rows">${stops.flatMap((s) => [s, ...tripsFrom(s.id)]).map((s) => `<li><a class="chapter${s.tentative ? ' tentative' : ''}${s.daytrip ? ' daytrip' : ''}" href="#/stop/${esc(s.id)}">
+        <span class="numeral">${s.daytrip ? '' : ROMAN[s.n] || s.n}</span>
         <span class="row-body">
-          <span class="when num">${esc(range(s.arrive, s.depart))}${s.tentative ? ' · provisional' : ''}</span>
+          <span class="when num">${s.daytrip ? `Day trip · ${esc(range(s.arrive))}` : esc(range(s.arrive, s.depart))}${s.tentative ? ' · provisional' : ''}</span>
           <p class="row-title">${esc(s.name)}</p>
           <p class="row-sub">${esc(s.tagline)}</p>
         </span>
@@ -294,14 +300,15 @@ function viewDays() {
 function viewStop(id) {
   const s = stopById(id);
   if (!s) return notFound();
-  const days = tripDays().filter((d) => d.stop === s.id);
+  const from = s.daytrip && stopById(s.daytrip);
+  const days = tripDays().filter((d) => (from ? d.date === s.arrive : d.stop === s.id));
   const kinds = Object.keys(KIND).map((k) => ({ k, items: expsAt(s.id, k) }));
   return {
     title: s.name,
     html: `<div class="page">
     ${photo(s.img, 'hero', { credit: true })}
     <section class="head">
-      <p class="eyebrow ruled">Stop ${ROMAN[s.n] || s.n} · ${esc(range(s.arrive, s.depart))}${s.tentative ? ' · provisional' : ''}</p>
+      <p class="eyebrow ruled"><span>${from ? `Day trip from <a href="#/stop/${esc(from.id)}">${esc(from.name)}</a> · ${esc(range(s.arrive))}` : `Stop ${ROMAN[s.n] || s.n} · ${esc(range(s.arrive, s.depart))}`}${s.tentative ? ' · provisional' : ''}</span></p>
       <h1 class="title">${esc(s.name)}</h1>
       <p class="lede">${esc(s.tagline)}</p>
       <div class="prose">${paras(s.intro)}</div>
@@ -312,6 +319,7 @@ function viewStop(id) {
       <div class="rows">${items.map((e) => expRow(e)).join('')}</div>
     </section>`).join('')}
     ${walksSection(s)}
+    ${tripsSection(s)}
     ${pastSection(s)}
     ${peopleSection(s)}
     ${(() => {
@@ -321,18 +329,28 @@ function viewStop(id) {
       ${passageHtml(p)}
     </section>` : '';
     })()}
-    <section class="section">
+    ${from ? '' : `<section class="section">
       <div class="section-head"><p class="eyebrow">Where we stay</p></div>
       ${s.stay ? `<a class="row" href="#/stay/${esc(s.id)}"><div class="row-body"><p class="row-title">${esc(s.stay.name)}</p><p class="meta">${esc(s.stay.address || '')}</p></div>${ic('chevron', 'chev')}</a>`
         : `<p class="tbd">To be booked · ${nights(s)} night${nights(s) === 1 ? '' : 's'}</p>`}
-    </section>
+    </section>`}
     <section class="section">
-      <div class="section-head"><p class="eyebrow">The days</p></div>
+      <div class="section-head"><p class="eyebrow">${from ? 'The day' : 'The days'}</p></div>
       <div class="rows">${days.map((d) => `<a class="row" href="#/day/${d.date}"><div class="row-body"><span class="when meta num" style="margin:0">Day ${d.n} · ${esc(shortDate(d.date))}</span><p class="row-title">${esc(d.title)}</p></div>${ic('chevron', 'chev')}</a>`).join('')}</div>
     </section>
     <div class="actions"><a class="btn wide" href="${esc(mapsLink(s))}" target="_blank" rel="noopener">${ic('directions', '')}Directions</a></div>
   </div>`,
   };
+}
+
+// The places we visit from a stop for the day, each with its own page.
+function tripsSection(s) {
+  const trips = tripsFrom(s.id);
+  if (!trips.length) return '';
+  return `<section class="section" id="sec-trips">
+      <div class="section-head"><p class="eyebrow">Day trip${trips.length > 1 ? 's' : ''}</p></div>
+      <div class="rows">${trips.map((x) => `<a class="row" href="#/stop/${esc(x.id)}"><div class="row-body"><span class="when meta num" style="margin:0">${esc(shortDate(x.arrive))}</span><p class="row-title">${esc(x.name)}</p><p class="row-sub">${esc(x.tagline)}</p></div>${ic('chevron', 'chev')}</a>`).join('')}</div>
+    </section>`;
 }
 
 /* ---------- the past, and its people ---------- */
@@ -367,7 +385,7 @@ function viewHistory(id) {
     html: `<div class="page">
     ${photo(s.img, 'hero', { credit: true })}
     <section class="head">
-      <p class="eyebrow ruled"><a href="#/stop/${esc(s.id)}">Stop ${ROMAN[s.n] || s.n} · ${esc(s.name)}</a></p>
+      <p class="eyebrow ruled"><a href="#/stop/${esc(s.id)}">${stopTag(s)} · ${esc(s.name)}</a></p>
       <h1 class="title">A short history</h1>
       <p class="lede">${esc(h.lede)}</p>
       <div class="prose">${paras(h.text)}</div>
@@ -621,7 +639,7 @@ function viewDay(date) {
     <section class="head plain-head">
       <p class="eyebrow ruled">Day ${d.n} · ${esc(longDate(d.date))}</p>
       <h1 class="title">${esc(d.title)}</h1>
-      ${stop ? `<p class="lede"><a href="#/stop/${esc(stop.id)}">Stop ${ROMAN[stop.n]} · ${esc(stop.name)}</a>${d.tentative ? ' · provisional' : ''}</p>` : ''}
+      ${stop ? `<p class="lede"><a href="#/stop/${esc(stop.id)}">Stop ${ROMAN[stop.n]} · ${esc(stop.name)}</a>${tripsFrom(stop.id).filter((x) => x.arrive === d.date).map((x) => ` · <a href="#/stop/${esc(x.id)}">Day trip to ${esc(x.name)}</a>`).join('')}${d.tentative ? ' · provisional' : ''}</p>` : ''}
     </section>
     <nav class="daynav">
       <a class="${prev ? '' : 'off'}" href="#/day/${prev?.date || ''}">‹ ${prev ? esc(shortDate(prev.date)) : ''}</a>
@@ -652,7 +670,7 @@ function viewExperiences(params) {
     ${DATA.stops.map((s) => {
       const items = list.filter((e) => e.stop === s.id);
       if (!items.length) return '';
-      return `<section class="section"><div class="section-head"><p class="eyebrow">${ROMAN[s.n]} · ${esc(s.name)}</p><span class="meta num">${esc(range(s.arrive, s.depart))}</span></div>
+      return `<section class="section"><div class="section-head"><p class="eyebrow">${stopNum(s)} · ${esc(s.name)}</p><span class="meta num">${esc(range(s.arrive, s.depart))}</span></div>
         <div class="rows">${items.map((e) => expRow(e)).join('')}</div></section>`;
     }).join('') || '<div class="empty-state"><p class="lede">Nothing here yet.</p></div>'}
     ${(() => {
@@ -809,7 +827,7 @@ function viewReading(params) {
       const towns = (s.towns || []).filter((t) => here.some((p) => p.town === t));
       const rest = here.filter((p) => !towns.includes(p.town));
       return `<section class="section">
-        <div class="section-head"><p class="eyebrow">${ROMAN[s.n]} · ${esc(s.name)}</p><a href="#/stop/${esc(s.id)}">Stop</a></div>
+        <div class="section-head"><p class="eyebrow">${stopNum(s)} · ${esc(s.name)}</p><a href="#/stop/${esc(s.id)}">${s.daytrip ? 'Day trip' : 'Stop'}</a></div>
         ${towns.length ? `<nav class="town-index">${towns.map((t, i) => `<button type="button" data-jump="town-${esc(s.id)}-${i}">${esc(t)}</button>`).join('')}</nav>` : ''}
         ${rest.length ? block(rest) : ''}
         ${towns.map((t, i) => `<div class="town" id="town-${esc(s.id)}-${i}">
@@ -831,7 +849,7 @@ function viewPractical() {
     </section>
     <section class="section">
       <div class="section-head"><p class="eyebrow">Where we sleep</p></div>
-      <div class="rows">${DATA.stops.map((s) => `<a class="row" href="#/${s.stay ? 'stay' : 'stop'}/${esc(s.id)}"><div class="row-body"><span class="when meta num" style="margin:0">${esc(range(s.arrive, s.depart))} · ${nights(s)} night${nights(s) === 1 ? '' : 's'}</span><p class="row-title">${esc(s.stay?.name || s.name)}</p>${s.stay ? '' : '<p class="row-sub">To be booked</p>'}</div>${ic('chevron', 'chev')}</a>`).join('')}</div>
+      <div class="rows">${nightStops().map((s) => `<a class="row" href="#/${s.stay ? 'stay' : 'stop'}/${esc(s.id)}"><div class="row-body"><span class="when meta num" style="margin:0">${esc(range(s.arrive, s.depart))} · ${nights(s)} night${nights(s) === 1 ? '' : 's'}</span><p class="row-title">${esc(s.stay?.name || s.name)}</p>${s.stay ? '' : '<p class="row-sub">To be booked</p>'}</div>${ic('chevron', 'chev')}</a>`).join('')}</div>
     </section>
     <section class="section">
       <div class="section-head"><p class="eyebrow">Reservations</p></div>
@@ -861,7 +879,7 @@ function notFound() {
 /* ---------- map tab ---------- */
 
 async function viewMap(el) {
-  el.innerHTML = '<div class="mapview" id="mapview"><div class="map-title"><div class="card"><p class="eyebrow">The route</p><p class="h3">' + esc(DATA.stops.map((s) => s.name).join(' · ')) + '</p></div></div></div>';
+  el.innerHTML = '<div class="mapview" id="mapview"><div class="map-title"><div class="card"><p class="eyebrow">The route</p><p class="h3">' + esc(nightStops().map((s) => s.name).join(' · ')) + '</p></div></div></div>';
   const { drawMap } = await import('./map.js');
   drawMap($('#mapview'), DATA, { kindLabel: (k) => KIND[k]?.label || k, statusLabel: (s) => STATUS[s] || s });
 }

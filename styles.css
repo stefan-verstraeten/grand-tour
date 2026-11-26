@@ -484,3 +484,8 @@ a.tl-link, .tl.stay a { color: inherit; display: block; }
 .facts.dates { grid-template-columns: 78px 1fr; }
 .facts.dates dt { letter-spacing: .04em; text-transform: none; font: 500 13px/1.6 var(--sans); color: var(--ochre); }
 .head .eyebrow a { color: inherit; }
+
+/* Day trips: under the stop they're made from */
+.chapter.daytrip { padding-top: 10px; }
+.chapter.daytrip .numeral::before { content: '↳'; color: var(--muted); }
+.pin.stop.trip { margin: 2px; width: 10px; height: 10px; background: var(--paper); border: 2px solid var(--ink); box-shadow: none; }
