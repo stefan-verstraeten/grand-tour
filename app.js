@@ -270,15 +270,17 @@ function viewDays() {
       <h1 class="title">Day by day</h1>
       <p class="lede">${esc(range(DATA.trip.start, DATA.trip.end))}</p>
     </section>
-    <section class="section"><div class="rows">${days.map((d) => {
+    <section class="section"><div class="rows">${days.map((d, i) => {
       const stop = stopById(d.stop);
       const head = stop && stop.id !== lastStop ? `<p class="eyebrow" style="padding:22px 0 6px;color:var(--ochre)">${ROMAN[stop.n]} · ${esc(stop.name)}</p>`
-        : !stop && lastStop && lastStop !== 'home' ? '<p class="eyebrow" style="padding:22px 0 6px;color:var(--ochre)">Homeward</p>' : '';
+        : !stop && lastStop && lastStop !== 'home' ? `<p class="eyebrow" style="padding:22px 0 6px;color:var(--ochre)">${days.slice(i + 1).some((x) => x.stop) ? `On the road${d.night ? ` · ${esc(d.night)}` : ''}` : 'Homeward'}</p>` : '';
       lastStop = stop?.id || (lastStop ? 'home' : lastStop);
       const items = (d.plan || []).map(expById).filter(Boolean);
       // The whole day's driving: from the first leg's start to the last leg's end.
       const lg = d.legs || [];
-      const drive = lg.length ? { from: lg[0].from, to: lg[lg.length - 1].to, hours: lg.every((l) => l.hours) ? lg.reduce((t, l) => t + l.hours, 0) : 0 } : null;
+      // A round trip (out and back to the same base) is named by where it goes.
+      const round = lg.length > 1 && lg[0].from === lg[lg.length - 1].to;
+      const drive = lg.length ? { from: lg[0].from, to: round ? `${lg[0].to} and back` : lg[lg.length - 1].to, hours: lg.every((l) => l.hours) ? lg.reduce((t, l) => t + l.hours, 0) : 0 } : null;
       return `${head}<a class="row" href="#/day/${d.date}">
         <div class="row-body">
           <span class="when meta num" style="margin:0">Day ${d.n} · ${esc(shortDate(d.date))}${d.tentative ? ' · provisional' : ''}</span>
