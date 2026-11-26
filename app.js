@@ -530,7 +530,7 @@ function viewStay(id) {
       <div class="walkmap mini" id="stay-map" role="img" aria-label="Map around ${esc(h.name)}"></div>
     </section>` : ''}
     <div class="actions">
-      ${h.phone ? `<a class="btn wide ghost" href="tel:${esc(h.phone.replace(/\s/g, ''))}">${ic('phone', '')}Call the hotel</a>` : ''}
+      ${h.phone ? `<a class="btn wide ghost" href="tel:${esc(h.phone.replace(/\s/g, ''))}">${ic('phone', '')}${h.kind ? 'Call the host' : 'Call the hotel'}</a>` : ''}
       <a class="btn wide" href="${esc(mapsLink(h))}" target="_blank" rel="noopener">${ic('directions', '')}Directions</a>
     </div>
     <nav class="daynav pad"><a href="#/stop/${esc(s.id)}">← ${esc(s.name)}</a><span></span></nav>
@@ -622,8 +622,8 @@ function viewDay(date) {
   }
   if (d.night) {
     items.push(`<li class="tl stay"><span class="t">Night</span><span class="dot"></span><div>
-      <p class="row-title">${esc(d.night)}</p>
-      <p class="row-sub">Hotel to be booked · on the way home</p>
+      <p class="row-title">${esc(d.hotel?.name || d.night)}</p>
+      <p class="row-sub">${d.hotel ? `${esc(d.hotel.address || d.night)}${d.tentative ? ' · not booked yet' : ''}` : 'Hotel to be booked'}</p>
     </div></li>`);
   } else if (stop && d.date < stop.depart) {
     const tag = stop.stay ? `a href="#/stay/${esc(stop.id)}"` : 'div';
