@@ -394,7 +394,7 @@ span.bar-btn { background: none; }
 .passage.find .eyebrow .italic { text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--ink-soft); }
 .find-cue { margin: 6px 0 0; font: 400 18px/1.4 var(--serif); color: var(--ink); }
 .find-where { margin: 6px 0 0; }
-.find-note { margin: 4px 0 0; font: italic 400 16px/1.4 var(--serif); color: var(--ink-soft); }
+.find-note { margin: 8px 0 0; font: 400 17px/1.5 var(--serif); color: var(--ink); }
 .find-note a { font: 500 12px var(--sans); font-style: normal; color: var(--olive-deep); }
 
 /* journal day picking */
