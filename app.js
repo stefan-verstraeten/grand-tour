@@ -503,22 +503,39 @@ async function bindWalks(route) {
 
 /* ---------- where we stay ---------- */
 
-function viewStay(id) {
+// A stay page is either a stop's hotel (#/stay/basel) or the hotel of a single night on
+// the road, addressed by its date (#/stay/2026-12-07).
+function stayFor(id) {
   const s = stopById(id);
-  const h = s?.stay;
-  if (!h) return notFound();
+  if (s) return s.stay ? { s, h: s.stay, back: { href: `#/stop/${s.id}`, label: s.name } } : null;
+  const days = tripDays();
+  const i = days.findIndex((d) => d.date === id);
+  const d = days[i];
+  if (!d?.night || !d.hotel) return null;
+  return {
+    s: { id: d.date, name: d.night, arrive: d.date, depart: days[i + 1]?.date || d.date, tentative: d.tentative },
+    h: d.hotel,
+    back: { href: `#/day/${d.date}`, label: `Day ${d.n}` },
+    night: true,
+  };
+}
+
+function viewStay(id) {
+  const ctx = stayFor(id);
+  if (!ctx) return notFound();
+  const { s, h, back } = ctx;
   const pics = h.photos || [];
   const facts = [];
   if (h.address) facts.push(['Address', `<a href="${esc(mapsLink(h))}" target="_blank" rel="noopener">${esc(h.address)}</a>`]);
   if (h.phone) facts.push(['Phone', `<a href="tel:${esc(h.phone.replace(/\s/g, ''))}">${esc(h.phone)}</a>`]);
-  facts.push(['Nights', `<span class="num">${esc(range(s.arrive, s.depart))} · ${nights(s)} night${nights(s) === 1 ? '' : 's'}</span>`]);
+  facts.push(['Nights', `<span class="num">${esc(range(s.arrive, s.depart))} · ${nights(s)} night${nights(s) === 1 ? '' : 's'}</span>${ctx.night && s.tentative ? ' · not booked yet' : ''}`]);
   for (const [k, v] of h.facts || []) facts.push([esc(k), esc(v)]);
   return {
     title: h.name,
     html: `<div class="page stay">
     ${photo(pics[0], 'hero', { credit: true })}
     <section class="head">
-      <p class="eyebrow ruled">Where we stay · ${esc(s.name)}</p>
+      <p class="eyebrow ruled">${ctx.night ? 'On the road' : 'Where we stay'} · ${esc(s.name)}</p>
       <h1 class="title">${esc(h.name)}</h1>
       ${h.tagline ? `<p class="lede">${esc(h.tagline)}</p>` : ''}
       ${h.about ? `<div class="prose">${paras(h.about)}</div>` : ''}
@@ -533,7 +550,7 @@ function viewStay(id) {
       ${h.phone ? `<a class="btn wide ghost" href="tel:${esc(h.phone.replace(/\s/g, ''))}">${ic('phone', '')}${h.kind ? 'Call the host' : 'Call the hotel'}</a>` : ''}
       <a class="btn wide" href="${esc(mapsLink(h))}" target="_blank" rel="noopener">${ic('directions', '')}Directions</a>
     </div>
-    <nav class="daynav pad"><a href="#/stop/${esc(s.id)}">← ${esc(s.name)}</a><span></span></nav>
+    <nav class="daynav pad"><a href="${esc(back.href)}">← ${esc(back.label)}</a><span></span></nav>
   </div>`,
   };
 }
@@ -541,12 +558,13 @@ function viewStay(id) {
 async function bindStay() {
   const el = $('#stay-map');
   if (!el) return;
-  const s = stopById(location.hash.split('/')[2]?.split('?')[0]);
-  const h = s.stay;
+  const ctx = stayFor(location.hash.split('/')[2]?.split(/[?#]/)[0]);
+  if (!ctx) return;
+  const { s, h } = ctx;
   // The chapter's sights within an easy walk, to place the hotel.
   const r = (x) => (x * Math.PI) / 180;
   const dist = (e) => 6371 * Math.acos(Math.min(1, Math.sin(r(h.lat)) * Math.sin(r(e.lat)) + Math.cos(r(h.lat)) * Math.cos(r(e.lat)) * Math.cos(r(e.lon - h.lon))));
-  const near = DATA.experiences.filter((e) => e.lat && e.stop === s.id && dist(e) < 1.2).map((e) => ({ name: e.name.split(/,| and | by /)[0], lat: e.lat, lon: e.lon }));
+  const near = DATA.experiences.filter((e) => e.lat && (ctx.night || e.stop === s.id) && dist(e) < 1.2).map((e) => ({ name: e.name.split(/,| and | by /)[0], lat: e.lat, lon: e.lon }));
   try {
     const { drawPlace } = await import('./map.js');
     if (el.isConnected) await drawPlace(el, { name: h.name, lat: h.lat, lon: h.lon }, near);
@@ -622,10 +640,10 @@ function viewDay(date) {
   }
   if (d.night) {
     items.push(`<li class="tl stay"><span class="t">Night</span><span class="dot"></span><div>
+      ${d.hotel ? `<a href="#/stay/${d.date}">` : ''}
       <p class="row-title">${esc(d.hotel?.name || d.night)}</p>
       <p class="row-sub">${d.hotel ? `${esc(d.hotel.address || d.night)}${d.tentative ? ' · not booked yet' : ''}` : 'Hotel to be booked'}</p>
-      ${d.hotel?.about ? `<p class="row-sub">${esc(d.hotel.about)}</p>` : ''}
-      ${d.hotel?.address || d.hotel?.phone ? `<p class="meta night-links">${d.hotel.address ? `<a href="${esc(mapsLink(d.hotel))}" target="_blank" rel="noopener">Directions</a>` : ''}${d.hotel.phone ? `<a href="tel:${esc(d.hotel.phone.replace(/\s/g, ''))}">Call ${esc(d.hotel.phone)}</a>` : ''}</p>` : ''}
+      ${d.hotel ? '</a>' : ''}
     </div></li>`);
   } else if (stop && d.date < stop.depart) {
     const tag = stop.stay ? `a href="#/stay/${esc(stop.id)}"` : 'div';
@@ -853,7 +871,7 @@ function viewPractical() {
       <div class="section-head"><p class="eyebrow">Where we sleep</p></div>
       <div class="rows">${[
         ...nightStops().map((s) => ({ date: s.arrive, html: `<a class="row" href="#/${s.stay ? 'stay' : 'stop'}/${esc(s.id)}"><div class="row-body"><span class="when meta num" style="margin:0">${esc(range(s.arrive, s.depart))} · ${nights(s)} night${nights(s) === 1 ? '' : 's'}</span><p class="row-title">${esc(s.stay?.name || s.name)}</p>${s.stay ? '' : '<p class="row-sub">To be booked</p>'}</div>${ic('chevron', 'chev')}</a>` })),
-        ...tripDays().filter((d) => d.night).map((d) => ({ date: d.date, html: `<a class="row" href="#/day/${d.date}"><div class="row-body"><span class="when meta num" style="margin:0">${esc(dayMonth(d.date))} · 1 night · ${esc(d.night)}</span><p class="row-title">${esc(d.hotel?.name || d.night)}</p>${d.hotel ? (d.tentative ? '<p class="row-sub">Not booked yet</p>' : '') : '<p class="row-sub">To be booked</p>'}</div>${ic('chevron', 'chev')}</a>` })),
+        ...tripDays().filter((d) => d.night).map((d) => ({ date: d.date, html: `<a class="row" href="#/${d.hotel ? 'stay' : 'day'}/${d.date}"><div class="row-body"><span class="when meta num" style="margin:0">${esc(dayMonth(d.date))} · 1 night · ${esc(d.night)}</span><p class="row-title">${esc(d.hotel?.name || d.night)}</p>${d.hotel ? (d.tentative ? '<p class="row-sub">Not booked yet</p>' : '') : '<p class="row-sub">To be booked</p>'}</div>${ic('chevron', 'chev')}</a>` })),
       ].sort((a, b) => a.date.localeCompare(b.date)).map((x) => x.html).join('')}</div>
     </section>
     <section class="section">
