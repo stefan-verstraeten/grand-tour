@@ -263,7 +263,7 @@ function viewJourney() {
     </section>
 
     ${essayLink()}
-    <footer class="footer">${ORNAMENT}<p class="eyebrow"><a href="#/practical">Practical</a> &nbsp;·&nbsp; <a href="#/practical#credits">Photo credits</a></p></footer>
+    <footer class="footer">${ORNAMENT}<p class="eyebrow"><a href="#/practical">Practical</a> &nbsp;·&nbsp; <a href="#/practical#credits">Photo credits</a> &nbsp;·&nbsp; <a href="#/practical#app-version">Update the app</a></p></footer>
   </div>`;
 }
 
@@ -865,11 +865,63 @@ function viewPractical() {
       <div class="section-head"><p class="eyebrow">Emergency</p></div>
       <dl class="facts">${(DATA.emergency || []).map((c) => `<dt>${esc(c.country)}</dt><dd>${c.numbers.map((n) => `<a href="tel:${esc(n.tel)}">${esc(n.tel)}</a> <span class="meta">${esc(n.label)}</span>`).join('<br>')}</dd>`).join('')}</dl>
     </section>
+    <section class="section" id="app-version">
+      <div class="section-head"><p class="eyebrow">This app</p></div>
+      <p class="meta" id="version-line">Checking for a newer version…</p>
+      <button class="btn wide ghost update-btn" type="button" data-update>Update to the latest version</button>
+      <p class="meta update-note">Reloads the app from the internet. The journal, its photos and the passphrase stay on this phone.</p>
+    </section>
     <section class="section" id="credits">
       <div class="section-head"><p class="eyebrow">Photo credits</p></div>
       <ul class="list-dash" style="font-size:15px">${Object.entries(DATA.credits || {}).map(([k, c]) => `<li>${esc(c.label || stopById(k)?.name || k)}: <a href="${esc(c.source)}" target="_blank" rel="noopener">${esc(c.author)}</a>, ${esc(c.license)}, via Wikimedia Commons</li>`).join('')}</ul>
     </section>
   </div>`;
+}
+
+/* ---------- app updates ---------- */
+
+// The version is the name of the service worker's app cache (grandtour-v31, …):
+// what this phone has is the cache it holds, the latest is what sw.js on the server says.
+const versionNum = (v) => parseInt(String(v).slice(1), 10) || 0;
+async function installedVersion() {
+  try {
+    return (await caches.keys()).map((k) => k.match(/^grandtour-(v\d+)$/)?.[1]).filter(Boolean).sort((a, b) => versionNum(b) - versionNum(a))[0] || null;
+  } catch { return null; }
+}
+async function latestVersion() {
+  const res = await fetch(`sw.js?check=${Date.now()}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.text()).match(/CACHE = 'grandtour-(v\d+)'/)?.[1] || null;
+}
+
+async function checkVersion() {
+  const line = $('#version-line');
+  if (!line) return;
+  const have = await installedVersion();
+  let latest = null;
+  try { latest = await latestVersion(); } catch { /* offline */ }
+  if (!document.body.contains(line)) return;
+  if (!latest) line.textContent = have ? `Version ${have} · offline, so no check for updates` : 'Offline, so no check for updates';
+  else if (have && versionNum(latest) > versionNum(have)) line.innerHTML = `<b>A newer version is ready: ${esc(latest)}.</b> This phone has ${esc(have)}.`;
+  else line.textContent = `Version ${have || latest} · up to date`;
+}
+
+// Fetch every app file afresh, drop the service worker and its app cache (photos and
+// map tiles stay), and reload: the page then comes straight from the server.
+async function forceUpdate(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
+  try { await latestVersion(); } catch {
+    toast('No connection. Try again when online.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Update to the latest version'; }
+    return;
+  }
+  const files = ['./', 'index.html', 'styles.css', 'app.js', 'crypto.js', 'routemap.js', 'map-data.js', 'map.js', 'notes.js', 'media.js', 'manifest.webmanifest', 'data/trip.enc.json'];
+  await Promise.all(files.map((u) => fetch(u, { cache: 'reload' }).catch(() => {})));
+  try {
+    for (const r of (await navigator.serviceWorker?.getRegistrations()) || []) await r.unregister();
+    for (const k of await caches.keys()) if (/^grandtour-v\d+$/.test(k)) await caches.delete(k);
+  } catch { /* nothing to clear */ }
+  location.reload();
 }
 
 function notFound() {
@@ -889,7 +941,7 @@ async function viewMap(el) {
 const TABS = { '': 'journey', days: 'journey', stop: 'journey', day: 'journey', exp: 'experiences', experiences: 'experiences', map: 'map', journal: 'journal', reading: 'reading', practical: 'journey', essay: 'journey', walk: 'journey', stay: 'journey', history: 'journey' };
 
 async function render() {
-  const [path, query = ''] = location.hash.replace(/^#\/?/, '').split('?');
+  const [path, query = ''] = location.hash.replace(/^#\/?/, '').split('#')[0].split('?');
   const [route, arg] = path.split('/');
   const params = new URLSearchParams(query);
   const view = $('#view');
@@ -936,6 +988,7 @@ async function render() {
 
 function bind(route, params) {
   if (route === 'stop' || route === 'walk') bindWalks(route);
+  if (route === 'practical') checkVersion();
   if (route === 'stay') bindStay();
   if (route === 'reading') {
     document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
@@ -1021,6 +1074,8 @@ document.addEventListener('click', (ev) => {
     return;
   }
   if (ev.target.closest('[data-sync]')) NOTES.syncNow().then(() => toast(NOTES.status().text));
+  const upd = ev.target.closest('[data-update]');
+  if (upd) forceUpdate(upd);
 });
 
 // Entries changed (saved here or arrived from the other phone): redraw the pages that

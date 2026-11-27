@@ -489,3 +489,9 @@ a.tl-link, .tl.stay a { color: inherit; display: block; }
 .chapter.daytrip { padding-top: 10px; }
 .chapter.daytrip .numeral::before { content: '↳'; color: var(--muted); }
 .pin.stop.trip { margin: 2px; width: 10px; height: 10px; background: var(--paper); border: 2px solid var(--ink); box-shadow: none; }
+
+/* Updating the app */
+.update-btn { width: 100%; margin-top: 14px; cursor: pointer; }
+.update-btn:disabled { opacity: .55; }
+.update-note { margin-top: 10px; }
+#version-line b { font-weight: 600; color: var(--ink); }
