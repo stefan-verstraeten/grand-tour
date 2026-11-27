@@ -495,3 +495,5 @@ a.tl-link, .tl.stay a { color: inherit; display: block; }
 .update-btn:disabled { opacity: .55; }
 .update-note { margin-top: 10px; }
 #version-line b { font-weight: 600; color: var(--ink); }
+.night-links { margin-top: 6px; display: flex; gap: 16px; flex-wrap: wrap; }
+.night-links a { color: var(--olive-deep); }

@@ -624,6 +624,8 @@ function viewDay(date) {
     items.push(`<li class="tl stay"><span class="t">Night</span><span class="dot"></span><div>
       <p class="row-title">${esc(d.hotel?.name || d.night)}</p>
       <p class="row-sub">${d.hotel ? `${esc(d.hotel.address || d.night)}${d.tentative ? ' · not booked yet' : ''}` : 'Hotel to be booked'}</p>
+      ${d.hotel?.about ? `<p class="row-sub">${esc(d.hotel.about)}</p>` : ''}
+      ${d.hotel?.address || d.hotel?.phone ? `<p class="meta night-links">${d.hotel.address ? `<a href="${esc(mapsLink(d.hotel))}" target="_blank" rel="noopener">Directions</a>` : ''}${d.hotel.phone ? `<a href="tel:${esc(d.hotel.phone.replace(/\s/g, ''))}">Call ${esc(d.hotel.phone)}</a>` : ''}</p>` : ''}
     </div></li>`);
   } else if (stop && d.date < stop.depart) {
     const tag = stop.stay ? `a href="#/stay/${esc(stop.id)}"` : 'div';
@@ -849,7 +851,10 @@ function viewPractical() {
     </section>
     <section class="section">
       <div class="section-head"><p class="eyebrow">Where we sleep</p></div>
-      <div class="rows">${nightStops().map((s) => `<a class="row" href="#/${s.stay ? 'stay' : 'stop'}/${esc(s.id)}"><div class="row-body"><span class="when meta num" style="margin:0">${esc(range(s.arrive, s.depart))} · ${nights(s)} night${nights(s) === 1 ? '' : 's'}</span><p class="row-title">${esc(s.stay?.name || s.name)}</p>${s.stay ? '' : '<p class="row-sub">To be booked</p>'}</div>${ic('chevron', 'chev')}</a>`).join('')}</div>
+      <div class="rows">${[
+        ...nightStops().map((s) => ({ date: s.arrive, html: `<a class="row" href="#/${s.stay ? 'stay' : 'stop'}/${esc(s.id)}"><div class="row-body"><span class="when meta num" style="margin:0">${esc(range(s.arrive, s.depart))} · ${nights(s)} night${nights(s) === 1 ? '' : 's'}</span><p class="row-title">${esc(s.stay?.name || s.name)}</p>${s.stay ? '' : '<p class="row-sub">To be booked</p>'}</div>${ic('chevron', 'chev')}</a>` })),
+        ...tripDays().filter((d) => d.night).map((d) => ({ date: d.date, html: `<a class="row" href="#/day/${d.date}"><div class="row-body"><span class="when meta num" style="margin:0">${esc(dayMonth(d.date))} · 1 night · ${esc(d.night)}</span><p class="row-title">${esc(d.hotel?.name || d.night)}</p>${d.hotel ? (d.tentative ? '<p class="row-sub">Not booked yet</p>' : '') : '<p class="row-sub">To be booked</p>'}</div>${ic('chevron', 'chev')}</a>` })),
+      ].sort((a, b) => a.date.localeCompare(b.date)).map((x) => x.html).join('')}</div>
     </section>
     <section class="section">
       <div class="section-head"><p class="eyebrow">Reservations</p></div>
