@@ -22,6 +22,42 @@ function loadLeaflet() {
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
+const BED = '<svg viewBox="0 0 24 24"><path d="M3 18V7"/><path d="M3 14h18v4"/><path d="M21 14v-2a3 3 0 0 0-3-3h-7v5"/><circle cx="7" cy="11" r="1.6"/></svg>';
+const HOUSE = '<svg viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v9h11v-9"/></svg>';
+
+// The key to the dots, folded away behind a small button; remembered per phone.
+function addKey(L, map, kindLabel) {
+  const Key = L.Control.extend({
+    options: { position: 'bottomleft' },
+    onAdd() {
+      const box = L.DomUtil.create('div', 'map-key');
+      // Open by default on a wide screen; folded on a phone, where it would cover the route.
+      let open = window.innerWidth >= 600;
+      try { const v = localStorage.getItem('mapKey'); if (v) open = v === 'open'; } catch { /* storage unavailable */ }
+      const row = (pin, label) => `<li><span class="key-pin">${pin}</span>${esc(label)}</li>`;
+      box.innerHTML = `<button type="button" class="key-toggle" aria-expanded="${open}">Key</button>
+        <ul class="key-list"${open ? '' : ' hidden'}>
+          ${row('<div class="pin stop"></div>', 'Stop')}
+          ${row('<div class="pin stop trip"></div>', 'Day trip')}
+          ${row(`<div class="pin hotel">${BED}</div>`, 'Where we sleep')}
+          ${row(`<div class="pin home">${HOUSE}</div>`, 'Home')}
+          ${['cuisine', 'architecture', 'museum', 'culture', 'nature'].map((k) => row(`<div class="pin ${k}"></div>`, kindLabel(k))).join('')}
+        </ul>`;
+      const btn = box.querySelector('.key-toggle');
+      const list = box.querySelector('.key-list');
+      btn.addEventListener('click', () => {
+        list.hidden = !list.hidden;
+        btn.setAttribute('aria-expanded', String(!list.hidden));
+        try { localStorage.setItem('mapKey', list.hidden ? 'closed' : 'open'); } catch { /* storage unavailable */ }
+      });
+      L.DomEvent.disableClickPropagation(box);
+      L.DomEvent.disableScrollPropagation(box);
+      return box;
+    },
+  });
+  new Key().addTo(map);
+}
+
 export async function drawMap(el, data, { kindLabel, statusLabel }) {
   await loadLeaflet();
   const L = window.L;
@@ -44,7 +80,7 @@ export async function drawMap(el, data, { kindLabel, statusLabel }) {
     L.polyline([h, line[0]], legs).addTo(map);
     L.polyline([line[line.length - 1], ...(home.returnVia || []), h], legs).addTo(map);
     L.marker(h, {
-      icon: L.divIcon({ className: '', html: '<div class="pin home"><svg viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v9h11v-9"/></svg></div>', iconSize: [24, 24], iconAnchor: [12, 12] }),
+      icon: L.divIcon({ className: '', html: `<div class="pin home">${HOUSE}</div>`, iconSize: [24, 24], iconAnchor: [12, 12] }),
       zIndexOffset: 1000,
     }).addTo(map)
       .bindTooltip(esc(home.name), { permanent: true, direction: 'right', className: 'stop-label', offset: [12, 0] })
@@ -61,12 +97,27 @@ export async function drawMap(el, data, { kindLabel, statusLabel }) {
       .bindPopup(`<p class="eyebrow">${s.daytrip ? 'Day trip' : `Stop ${s.n}`}</p><p class="row-title">${esc(s.name)}</p><p class="row-sub">${esc(s.tagline)}</p><a class="more" href="#/stop/${esc(s.id)}">${s.daytrip ? 'Open' : 'Open stop'}</a>`);
   }
 
+  // Where we sleep: each stop's hotel, and the hotels of single nights on the road.
+  const hotels = [
+    ...stops.filter((s) => s.stay?.lat).map((s) => ({ id: s.id, h: s.stay, where: s.name })),
+    ...(data.days || []).filter((d) => d.night && d.hotel?.lat).map((d) => ({ id: d.date, h: d.hotel, where: `${d.night} · one night${d.tentative ? ', not booked yet' : ''}` })),
+  ];
+  for (const { id, h, where } of hotels) {
+    L.marker([h.lat, h.lon], {
+      icon: L.divIcon({ className: '', html: `<div class="pin hotel">${BED}</div>`, iconSize: [20, 20], iconAnchor: [10, 10] }),
+      zIndexOffset: 500,
+    }).addTo(map)
+      .bindPopup(`<p class="eyebrow">Where we sleep · ${esc(where)}</p><p class="row-title">${esc(h.name)}</p>${h.tagline ? `<p class="row-sub">${esc(h.tagline)}</p>` : ''}<a class="more" href="#/stay/${esc(id)}">Open</a>`);
+  }
+
   for (const e of data.experiences.filter((x) => x.lat)) {
     L.marker([e.lat, e.lon], {
       icon: L.divIcon({ className: '', html: `<div class="pin ${esc(e.kind)}"></div>`, iconSize: [12, 12], iconAnchor: [6, 6] }),
     }).addTo(map)
       .bindPopup(`<p class="eyebrow">${esc(kindLabel(e.kind))} · ${esc(statusLabel(e.status))}</p><p class="row-title">${esc(e.name)}</p>${e.tagline ? `<p class="row-sub">${esc(e.tagline)}</p>` : ''}<a class="more" href="#/exp/${esc(e.id)}">Open</a>`);
   }
+
+  addKey(L, map, kindLabel);
 
   // Hide the permanent stop labels when zoomed in close: the places speak for themselves.
   const labels = () => el.classList.toggle('close', map.getZoom() >= 12);

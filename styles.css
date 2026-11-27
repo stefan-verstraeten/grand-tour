@@ -16,6 +16,7 @@
   --olive-deep: #5E6052;
   --stone: #C8BBA6;
   --ochre: #AD7954;
+  --slate: #5F7383;
   --rule: rgba(41, 45, 38, .14);
   --rule-strong: rgba(41, 45, 38, .28);
   --land: #EEE8DA;
@@ -296,7 +297,7 @@ span.bar-btn { background: none; }
 .map-title .h3 { font-size: 22px; }
 .pin { width: 12px; height: 12px; border-radius: 50%; background: var(--paper); border: 1.5px solid var(--ink); }
 .pin.cuisine { background: var(--ochre); border-color: var(--paper); box-shadow: 0 0 0 1px var(--ochre); }
-.pin.culture { background: var(--ink); border-color: var(--paper); box-shadow: 0 0 0 1px var(--ink); }
+.pin.culture { background: var(--slate); border-color: var(--paper); box-shadow: 0 0 0 1px var(--slate); }
 .pin.architecture { background: var(--stone); border-color: var(--paper); box-shadow: 0 0 0 1px var(--ink-soft); }
 .pin.museum { background: var(--paper); border-color: var(--ink); }
 .pin.nature { background: var(--olive); border-color: var(--paper); box-shadow: 0 0 0 1px var(--olive); }
@@ -488,7 +489,6 @@ a.tl-link, .tl.stay a { color: inherit; display: block; }
 /* Day trips: under the stop they're made from */
 .chapter.daytrip { padding-top: 10px; }
 .chapter.daytrip .numeral::before { content: '↳'; color: var(--muted); }
-.pin.stop.trip { margin: 2px; width: 10px; height: 10px; background: var(--paper); border: 2px solid var(--ink); box-shadow: none; }
 
 /* Updating the app */
 .update-btn { width: 100%; margin-top: 14px; cursor: pointer; }
@@ -497,3 +497,18 @@ a.tl-link, .tl.stay a { color: inherit; display: block; }
 #version-line b { font-weight: 600; color: var(--ink); }
 .night-links { margin-top: 6px; display: flex; gap: 16px; flex-wrap: wrap; }
 .night-links a { color: var(--olive-deep); }
+
+/* Map: hotels, and the key to the dots */
+.pin.stop.trip { margin: 1px; width: 10px; height: 10px; background: var(--ink); border: 2px solid var(--paper); box-shadow: 0 0 0 1px var(--ink); }
+.pin.hotel { width: 20px; height: 20px; display: grid; place-items: center; background: var(--paper); border: 1.5px solid var(--ochre); border-radius: 5px; box-shadow: 0 1px 3px rgba(41,45,38,.2); }
+.pin.hotel svg { width: 14px; height: 14px; fill: none; stroke: var(--ink); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.map-key { background: rgba(243,239,230,.95); border-radius: 4px; box-shadow: 0 1px 0 var(--rule), 0 2px 10px rgba(41,45,38,.12); font: 400 12.5px/1.2 var(--sans); color: var(--ink); max-width: 190px; }
+.map-key .key-toggle { appearance: none; border: 0; background: none; cursor: pointer; width: 100%; text-align: left; padding: 8px 12px; font: 500 10.5px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+.map-key .key-toggle::after { content: ' ▴'; }
+.map-key .key-toggle[aria-expanded="false"]::after { content: ' ▾'; }
+.map-key .key-list { list-style: none; margin: 0; padding: 0 12px 10px; display: grid; gap: 5px; }
+.map-key .key-list[hidden] { display: none; }
+.map-key li { display: flex; align-items: center; gap: 10px; }
+.map-key .key-pin { width: 24px; display: grid; place-items: center; flex: none; }
+.map-key .key-pin .pin.home { width: 20px; height: 20px; box-shadow: none; }
+.map-key .key-pin .pin.home svg { width: 12px; height: 12px; }
